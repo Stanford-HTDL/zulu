@@ -330,7 +330,7 @@ def main():
 
         if save_model and epoch % save_every == 0:
             state_dict = model.state_dict()
-            savepath = os.path.join(save_dir, f"checkpoint_epoch{epoch}.pth")
+            savepath = os.path.join(save_dir, f"checkpoint_epoch_{epoch:04}.pth")
             torch.save(state_dict, savepath)
             logging.info(f"Checkpoint {epoch} saved.")
     logging.info(
