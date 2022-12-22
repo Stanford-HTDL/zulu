@@ -223,8 +223,8 @@ def main():
 
     logging.info(
         f"""
-        Number of training samples:   {num_train}
-        Number of validation samples: {num_validation}
+                Number of training samples:   {num_train}
+                Number of validation samples: {num_validation}
         """
     )
     train_set, validation_set = torch.utils.data.random_split(
@@ -294,10 +294,10 @@ def main():
 
         logging.info(
             f"""
-            Epoch {epoch} training completed.
-            Train loss: {train_loss:.2f}.\
-
-            Starting validation...
+                    Epoch {epoch} training completed.
+                    Train loss: {train_loss:.5f}.\
+        
+                    Starting validation...
             """
         )
         model.eval()
@@ -321,10 +321,10 @@ def main():
 
         logging.info(
             f"""
-            Epoch {epoch} validation completed.
-            Validation loss: {validation_loss:.2f}.
-
-            Done with epoch {epoch}.
+                    Epoch {epoch} validation completed.
+                    Validation loss: {validation_loss:.5f}.
+        
+                    Done with epoch {epoch}.
             """
         )
 
@@ -335,11 +335,11 @@ def main():
             logging.info(f"Checkpoint {epoch} saved.")
     logging.info(
         """
-        ================
-        =              =
-        =     Done.    =
-        =              =
-        ================
+                ================
+                =              =
+                =     Done.    =
+                =              =
+                ================
         """
     )
 
