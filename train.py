@@ -5,7 +5,7 @@ import time
 
 import torch
 
-from models import SqueezeNet
+from models import SqueezeNet, SpectrumNet
 from datasets import EurosatDataset
 from script_utils import get_args, get_random_string
 
@@ -21,6 +21,9 @@ DEFAULT_LR = 1e-3
 DEFAULT_MOMENTUM = 0.9
 DEFAULT_NESTEROV = True
 DEFAULT_WEIGHT_DECAY = 5e-4
+DEFAULT_SCHEDULER = "StepLR"
+DEFAULT_STEP_SIZE = 10
+DEFAULT_SCHEDULER_GAMMA = 0.75
 DEFAULT_MODEL_NAME = "SqueezeNet"
 DEFAULT_DATASET_NAME = "EurosatDataset"
 DEFAULT_DATA_MANIFEST = "eurosat_manifest.json"
@@ -42,7 +45,8 @@ if torch.cuda.is_available():
 
 # REMEMBER to update as new models are added!
 MODELS = {
-    SqueezeNet.__name__: SqueezeNet
+    SqueezeNet.__name__: SqueezeNet,
+    SpectrumNet.__name__: SpectrumNet
 }
 
 DATASETS = {
@@ -55,6 +59,9 @@ CRITERIA = {
 
 OPTIMIZERS = {
     "SGD": torch.optim.SGD
+}
+SCHEDULERS = {
+    "StepLR": torch.optim.lr_scheduler.StepLR
 }
 
 
@@ -135,6 +142,20 @@ def parse_args():
         default=DEFAULT_WEIGHT_DECAY,
         type=float
     )   
+    parser.add_argument(
+        "--scheduler",
+        default=DEFAULT_SCHEDULER
+    )
+    parser.add_argument(
+        "--step-size",
+        default=DEFAULT_STEP_SIZE,
+        type=int
+    )
+    parser.add_argument(
+        "--scheduler-gamma",
+        default=DEFAULT_SCHEDULER_GAMMA,
+        type=float
+    )    
     parser.add_argument(
         "--num-workers",
         default=DEFAULT_NUM_WORKERS,
@@ -258,6 +279,15 @@ def main():
     else:
         raise NotImplementedError(f"Optimizer {optimizer_name} not known.")
 
+    scheduler_name = args["scheduler"]
+    Scheduler = SCHEDULERS[scheduler_name]
+    if scheduler_name == "StepLR":
+        step_size = args["step_size"]
+        scheduler_gamma = args["scheduler_gamma"]
+        scheduler = Scheduler(
+            optimizer, step_size=step_size, gamma=scheduler_gamma
+        )
+
     use_mp = args["mixed_precision"]
 
     criterion_name = args["criterion"]
@@ -291,6 +321,7 @@ def main():
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
+        scheduler.step()
 
         logging.info(
             f"""
@@ -328,7 +359,7 @@ def main():
             """
         )
 
-        if save_model and epoch % save_every == 0:
+        if (save_model and epoch % save_every == 0) or epoch == num_epochs:
             state_dict = model.state_dict()
             savepath = os.path.join(save_dir, f"checkpoint_epoch_{epoch:04}.pth")
             torch.save(state_dict, savepath)
