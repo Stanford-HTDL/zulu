@@ -12,7 +12,7 @@ from osgeo import gdal
 from PIL import Image
 from torch.utils.data import Dataset
 
-from script_utils import parse_args
+from script_utils import parse_args, arg_is_true
 
 
 class EurosatDataset(Dataset):
@@ -20,6 +20,7 @@ class EurosatDataset(Dataset):
 
     DEFAULT_DATA_MANIFEST: str = "eurosat_manifest.json"
     DEFAULT_BANDS: List[int] = [1, 2, 3, 7]
+    DEFAULT_USE_DATA_AUG: bool = True
 
 
     def __init__(self):
@@ -35,6 +36,7 @@ class EurosatDataset(Dataset):
         self.filepaths = filepaths
         self.categories = data_dict["categories"]
         self.bands = bands
+        self.use_data_aug = arg_is_true(args["use_data_aug"])
 
 
     def parse_args(self):
@@ -48,6 +50,10 @@ class EurosatDataset(Dataset):
             nargs="+",
             type=int,
             default=self.DEFAULT_BANDS
+        )
+        parser.add_argument(
+            "--use-data-aug",
+            default=self.DEFAULT_USE_DATA_AUG
         )
         args = parse_args(parser=parser)
         return args        
@@ -120,14 +126,15 @@ class EurosatDataset(Dataset):
 
         image = torch.as_tensor(image.copy()).float().contiguous()
         target = torch.as_tensor(target)
-
-        transform_idx = random.randint(0, 2)
-        if transform_idx == 0:
-            image = self.horizontal_flip(image)
-        elif transform_idx == 1:
-            image = self.vertical_flip(image)
-        else:
-            image = self.rotate(image)           
+        
+        if self.use_data_aug:
+            transform_idx = random.randint(0, 2)
+            if transform_idx == 0:
+                image = self.horizontal_flip(image)
+            elif transform_idx == 1:
+                image = self.vertical_flip(image)
+            else:
+                image = self.rotate(image)           
 
         return {
             'X': image,
@@ -139,6 +146,7 @@ class ConvLSTMCDataset(Dataset):
     __name__ = "ConvLSTMCDataset"
 
     DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
+    DEFAULT_USE_DATA_AUG: bool = True
 
 
     def __init__(self):
@@ -163,6 +171,7 @@ class ConvLSTMCDataset(Dataset):
 
         self.samples = samples
         self.categories = data_dict["categories"]
+        self.use_data_aug = arg_is_true(args["use_data_aug"])
 
 
     def parse_args(self):
@@ -171,6 +180,10 @@ class ConvLSTMCDataset(Dataset):
             "--data-manifest",
             default=self.DEFAULT_DATA_MANIFEST
         )
+        parser.add_argument(
+            "--use-data-aug",
+            default=self.DEFAULT_USE_DATA_AUG
+        )        
         args = parse_args(parser=parser)
         return args              
 
@@ -233,15 +246,17 @@ class ConvLSTMCDataset(Dataset):
         image_arrays: list = list()
         dirpath: str = sample["dirpath"]
         filenames: List[str] = self.sort_filenames(sample["filenames"])
-
-        transform_idx = random.randint(0, 2)
+        
+        if self.use_data_aug:
+            transform_idx = random.randint(0, 2)
 
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
             assert os.path.exists(filepath), f"File {filepath} does not exist."
             arr = self.read_png_as_arr(filepath=filepath)
             image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
-            image = self.spatial_transform(image, idx=transform_idx)
+            if self.use_data_aug:
+                image = self.spatial_transform(image, idx=transform_idx)
             image_arrays.append(image)
 
         image_arrays = torch.stack(image_arrays, 0)
