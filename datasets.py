@@ -2,15 +2,20 @@ import glob
 import json
 import os
 import random
+from typing import List
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from osgeo import gdal
+from PIL import Image
 from torch.utils.data import Dataset
 
 
 class EurosatDataset(Dataset):
+    __name__ = "EurosatDataset"
+
+
     def __init__(
         self, data_manifest_path, bands = [1, 2, 3, 7]
     ):
@@ -43,7 +48,9 @@ class EurosatDataset(Dataset):
                 raise e
             return image[self.bands]
         else:
-            raise NotImplementedError(f"Expects .tif or .tiff files. Received .{ext}.")
+            raise NotImplementedError(
+                f"Expects .tif or .tiff files. Received .{ext}."
+            )
 
 
     @staticmethod
@@ -102,3 +109,108 @@ class EurosatDataset(Dataset):
             'X': image,
             'Y': target
         }
+
+
+class ConvLSTMCDataset(Dataset):
+    __name__ = "ConvLSTMCDataset"
+
+
+    def __init__(self, data_manifest_path: str):
+        with open(data_manifest_path) as f:
+            data_dict = json.load(f)
+
+        dir_path = data_dict["dir_path"]
+        samples = list()
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            if not dirnames:
+                for key, value in data_dict["categories"].items():
+                    if key in dirpath:
+                        sample_dict = {
+                            "dirpath": dirpath,
+                            "filenames": filenames,
+                            "label": value
+                        }
+                        samples.append(sample_dict)
+
+        self.samples = samples
+        self.categories = data_dict["categories"]
+
+
+    def __len__(self):
+        return len(self.samples)
+
+
+    @staticmethod
+    def read_png_as_arr(filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        arr = np.array(img)
+        return arr
+
+
+    @staticmethod
+    def sort_filenames(filenames: List[str]) -> List[str]:
+        filenames_sorted = sorted(filenames)
+        return filenames_sorted
+
+
+    @staticmethod
+    def horizontal_flip(image, p = 0.75):
+        if random.random() > p:
+            image = TF.hflip(image)
+        
+        return image
+
+
+    @staticmethod
+    def vertical_flip(image, p = 0.75):
+        if random.random() > p:
+            image = TF.vflip(image)
+        
+        return image
+
+
+    @staticmethod
+    def rotate(image, p = 0.75, max_angle = 30):
+        if random.random() > p:
+            angle = random.randint(- max_angle, max_angle)
+            image = TF.rotate(image, angle)
+        
+        return image        
+
+
+    def spatial_transform(self, image: torch.tensor, idx: int) -> torch.tensor:
+        if idx == 0:
+            image = self.horizontal_flip(image)
+        elif idx == 1:
+            image = self.vertical_flip(image)
+        else:
+            image = self.rotate(image)  
+        return image        
+
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+
+        image_arrays: list = list()
+        dirpath: str = sample["dirpath"]
+        filenames: List[str] = self.sort_filenames(sample["filenames"])
+
+        transform_idx = random.randint(0, 2)
+
+        for filename in filenames:
+            filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+            assert os.path.exists(filepath), f"File {filepath} does not exist."
+            arr = self.read_png_as_arr(filepath=filepath)
+            image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+            image = self.spatial_transform(image, idx=transform_idx)
+            image_arrays.append(image)
+
+        image_arrays = torch.stack(image_arrays, 0)
+        image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
+
+        target: torch.tensor = torch.as_tensor(sample["label"])
+
+        return {
+            'X': image_arrays,
+            'Y': target
+        }            

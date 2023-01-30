@@ -5,8 +5,8 @@ import time
 
 import torch
 
-from models import SqueezeNet, SpectrumNet
-from datasets import EurosatDataset
+from datasets import ConvLSTMCDataset, EurosatDataset
+from models import CNNLSTM, SpectrumNet, SqueezeNet
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
@@ -37,6 +37,7 @@ DEFAULT_DEVICE = "CUDA if available else CPU"
 DEFAULT_MIXED_PRECISION = True
 DEFAULT_SAVE_MODEL = True
 DEFAULT_SAVE_EVERY = 8
+DEFAULT_CHANNEL_AXIS = 1
 
 DEFAULT_SEED = 8675309
 torch.manual_seed(DEFAULT_SEED)
@@ -46,11 +47,13 @@ if torch.cuda.is_available():
 # REMEMBER to update as new models are added!
 MODELS = {
     SqueezeNet.__name__: SqueezeNet,
-    SpectrumNet.__name__: SpectrumNet
+    SpectrumNet.__name__: SpectrumNet,
+    CNNLSTM.__name__: CNNLSTM
 }
 
 DATASETS = {
-    "EurosatDataset": EurosatDataset
+    EurosatDataset.__name__: EurosatDataset,
+    ConvLSTMCDataset.__name__: ConvLSTMCDataset
 }
 
 CRITERIA = {
@@ -184,7 +187,12 @@ def parse_args():
         "--save-every",
         default=DEFAULT_SAVE_EVERY,
         type=int
-    )               
+    )
+    parser.add_argument(
+        "--channel-axis",
+        default=DEFAULT_CHANNEL_AXIS,
+        type=int
+    )         
     p_args, _ = parser.parse_known_args()
     return p_args    
 
@@ -296,6 +304,8 @@ def main():
     save_model = args["save_model"]
     save_every = args["save_every"]
 
+    channel_axis = args["channel_axis"]
+
     ### Train Loop Begins ###
     logging.info("Starting training...")
     for epoch in range(1, num_epochs + 1):
@@ -304,7 +314,7 @@ def main():
         train_loss = 0.0
         for batch in train_loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-            X_num_channels = X.shape[1]
+            X_num_channels = X.shape[channel_axis]
             assert X_num_channels == model.num_channels, \
                 f"Network has been defined with {model.num_channels}" \
                 f"input channels, but loaded images have {X_num_channels}" \
@@ -335,7 +345,7 @@ def main():
         validation_loss = 0.0
         for batch in validation__loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-            X_num_channels = X.shape[1]
+            X_num_channels = X.shape[channel_axis]
             assert X_num_channels == model.num_channels, \
                 f"Network has been defined with {model.num_channels}" \
                 f"input channels, but loaded images have {X_num_channels}" \

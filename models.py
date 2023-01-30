@@ -1,6 +1,11 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.init as init
+from torchvision.models import resnet101
+
 
 class Fire(nn.Module):
     def __init__(
@@ -127,4 +132,34 @@ class SpectrumNet(SqueezeNet):
                 else:
                     init.kaiming_uniform_(m.weight)
                 if m.bias is not None:
-                    init.constant_(m.bias, 0)        
+                    init.constant_(m.bias, 0)
+
+
+class CNNLSTM(nn.Module):
+    __name__ = "CNNLSTM"
+
+
+    def __init__(self, num_channels: int, num_classes: int, dropout: Optional[float] = 0.0):
+        assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."
+        assert not dropout, "Dropout not implemented for this class."
+        self.num_channels = num_channels
+        self.num_classes = num_classes
+        self.dropout = dropout
+        super(CNNLSTM, self).__init__()
+        self.resnet = resnet101(pretrained=True)
+        self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
+        self.lstm = nn.LSTM(input_size=300, hidden_size=256, num_layers=3)
+        self.fc1 = nn.Linear(256, 128)
+        self.fc2 = nn.Linear(128, num_classes)
+       
+    def forward(self, x_3d):
+        hidden = None
+        for t in range(x_3d.size(1)):
+            with torch.no_grad():
+                x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])  
+            out, hidden = self.lstm(x.unsqueeze(0), hidden)         
+
+        x = self.fc1(out[-1, :, :])
+        x = F.relu(x)
+        x = self.fc2(x)
+        return x                    
