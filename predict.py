@@ -76,37 +76,6 @@ def parse_args():
     return p_args
 
 
-def conv_lstm_c_gen(dir_path: str) -> Generator:
-    def read_png_as_arr(filepath: str) -> np.ndarray:
-        img = Image.open(filepath).convert('RGB')
-        arr = np.array(img)
-        return arr
-
-
-    for dirpath, dirnames, filenames in os.walk(dir_path):
-        if not dirnames:
-            image_arrays: list = list()
-            for filename in filenames:
-                filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
-                assert os.path.exists(filepath), f"File {filepath} does not exist."
-                arr = read_png_as_arr(filepath=filepath)
-                image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
-                image_arrays.append(image)
-
-            image_arrays = torch.stack(image_arrays, 0)
-            image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
-            image_arrays = image_arrays[None, :, :, :, :]
-
-            yield {
-                'X': image_arrays,
-                'Y': None
-            }
-
-
-def save_preds(pred: torch.tensor):
-    logging.info(f"Prediction: \n {pred}")
-
-
 def main():
     args = vars(parse_args())
     if not args["id"]:
