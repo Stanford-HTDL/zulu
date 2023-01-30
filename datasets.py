@@ -213,4 +213,13 @@ class ConvLSTMCDataset(Dataset):
         return {
             'X': image_arrays,
             'Y': target
-        }            
+        } 
+
+
+# @TODO: IMPLEMENT
+class ConvLSTMODDataset(ConvLSTMCDataset):
+    __name__ = "ConvLSTMODDataset"
+
+
+    def __init__(self, data_manifest_path: str):
+        raise NotImplementedError("This class is not implemented yet.")
