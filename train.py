@@ -7,26 +7,26 @@ import torch
 
 from datasets import ConvLSTMCDataset, EurosatDataset
 from models import CNNLSTM, SpectrumNet, SqueezeNet
+from optimizers import SGD
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
 
-DEFAULT_NUM_CHANNELS = 4
-DEFAULT_NUM_CLASSES = 10
-DEFAULT_DROPOUT = 0.5
+# DEFAULT_NUM_CHANNELS = 4
+# DEFAULT_NUM_CLASSES = 10
+# DEFAULT_DROPOUT = 0.5
 DEFAULT_BATCH_SIZE = 64
 DEFAULT_NUM_EPOCHS = 64
-DEFAULT_OPTIMIZER = "SGD"
-DEFAULT_LR = 1e-3
-DEFAULT_MOMENTUM = 0.9
-DEFAULT_NESTEROV = True
-DEFAULT_WEIGHT_DECAY = 5e-4
+DEFAULT_OPTIMIZER = SGD.__name__
+# DEFAULT_LR = 1e-3
+# DEFAULT_MOMENTUM = 0.9
+# DEFAULT_NESTEROV = True
+# DEFAULT_WEIGHT_DECAY = 5e-4
 DEFAULT_SCHEDULER = "StepLR"
 DEFAULT_STEP_SIZE = 10
 DEFAULT_SCHEDULER_GAMMA = 0.75
-DEFAULT_MODEL_NAME = "SqueezeNet"
-DEFAULT_DATASET_NAME = "EurosatDataset"
-DEFAULT_DATA_MANIFEST = "eurosat_manifest.json"
+DEFAULT_MODEL_NAME = SqueezeNet.__name__
+DEFAULT_DATASET_NAME = EurosatDataset.__name__
 DEFAULT_VALIDATION_PERCENT = 0.15
 DEFAULT_SHUFFLE = True
 DEFAULT_CRITERION_NAME = "CrossEntropyLoss"
@@ -40,7 +40,7 @@ DEFAULT_SAVE_EVERY = 8
 DEFAULT_CHANNEL_AXIS = 1
 DEFAULT_EXPERIMENT_DIR: str = "experiments/"
 
-DEFAULT_SEED = 8675309
+DEFAULT_SEED = 8675309 # (___)-867-5309
 torch.manual_seed(DEFAULT_SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(DEFAULT_SEED)
@@ -62,7 +62,7 @@ CRITERIA = {
 }
 
 OPTIMIZERS = {
-    "SGD": torch.optim.SGD
+    SGD.__name__: SGD
 }
 SCHEDULERS = {
     "StepLR": torch.optim.lr_scheduler.StepLR
@@ -79,10 +79,10 @@ def parse_args():
         "--dataset",
         default=DEFAULT_DATASET_NAME
     )
-    parser.add_argument(
-        "--data-manifest",
-        default=DEFAULT_DATA_MANIFEST
-    )    
+    # parser.add_argument(
+    #     "--data-manifest",
+    #     default=DEFAULT_DATA_MANIFEST
+    # )    
     parser.add_argument(
         "--val-percent",
         default=DEFAULT_VALIDATION_PERCENT,
@@ -97,21 +97,21 @@ def parse_args():
         "--criterion",
         default=DEFAULT_CRITERION_NAME,
     )
-    parser.add_argument(
-        "--num-channels",
-        default=DEFAULT_NUM_CHANNELS,
-        type=int
-    )
-    parser.add_argument(
-        "--num-classes",
-        default=DEFAULT_NUM_CLASSES,
-        type=int
-    )
-    parser.add_argument(
-        "--dropout",
-        default=DEFAULT_DROPOUT,
-        type=float
-    )    
+    # parser.add_argument(
+    #     "--num-channels",
+    #     default=DEFAULT_NUM_CHANNELS,
+    #     type=int
+    # )
+    # parser.add_argument(
+    #     "--num-classes",
+    #     default=DEFAULT_NUM_CLASSES,
+    #     type=int
+    # )
+    # parser.add_argument(
+    #     "--dropout",
+    #     default=DEFAULT_DROPOUT,
+    #     type=float
+    # )    
     parser.add_argument(
         "--batch-size",
         default=DEFAULT_BATCH_SIZE,
@@ -126,26 +126,26 @@ def parse_args():
         "--optimizer",
         default=DEFAULT_OPTIMIZER,
     )    
-    parser.add_argument(
-        "--lr",
-        default=DEFAULT_LR,
-        type=float
-    )
-    parser.add_argument(
-        "--momentum",
-        default=DEFAULT_MOMENTUM,
-        type=float
-    )
-    parser.add_argument(
-        "--nesterov",
-        default=DEFAULT_NESTEROV,
-        type=bool
-    )    
-    parser.add_argument(
-        "--weight-decay",
-        default=DEFAULT_WEIGHT_DECAY,
-        type=float
-    )   
+    # parser.add_argument(
+    #     "--lr",
+    #     default=DEFAULT_LR,
+    #     type=float
+    # )
+    # parser.add_argument(
+    #     "--momentum",
+    #     default=DEFAULT_MOMENTUM,
+    #     type=float
+    # )
+    # parser.add_argument(
+    #     "--nesterov",
+    #     default=DEFAULT_NESTEROV,
+    #     type=bool
+    # )    
+    # parser.add_argument(
+    #     "--weight-decay",
+    #     default=DEFAULT_WEIGHT_DECAY,
+    #     type=float
+    # )   
     parser.add_argument(
         "--scheduler",
         default=DEFAULT_SCHEDULER
@@ -206,7 +206,6 @@ def parse_args():
 
 
 def main():
-
     args = vars(parse_args())
     if not args["id"]:
         experiment_id = get_random_string()
@@ -229,18 +228,6 @@ def main():
     
     args = vars(parse_args())
 
-    args = get_args(
-        script_path=SCRIPT_PATH, log_filepath=log_filepath, **args, 
-        experiment_id = experiment_id, time = time_str
-    )
-
-    num_channels = args["num_channels"]
-    num_classes = args["num_classes"]
-    dropout = args["dropout"]
-
-    num_epochs = args["num_epochs"]
-    batch_size = args["batch_size"]
-
     device = args["device"]
     if device == DEFAULT_DEVICE:
         device =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -248,21 +235,38 @@ def main():
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-    logging.info(f'Using device {device}')    
+    logging.info(f'Using device {device}')       
 
     model_name = args["model"]
-    model = MODELS[model_name](
-        num_channels=num_channels, num_classes=num_classes, dropout=dropout
-    )
-    model = model.to(device=device)
+    model = MODELS[model_name]()    
 
-    data_manifest = args["data_manifest"]
+    model = model.to(device=device)  
+    model_num_channels = model.args["num_channels"] # A constraint on the Model class        
+
+    # args = get_args(
+    #     script_path=SCRIPT_PATH, log_filepath=log_filepath, **args, 
+    #     experiment_id = experiment_id, time = time_str
+    # )
+
+    # num_channels = args["num_channels"]
+    # num_classes = args["num_classes"]
+    # dropout = args["dropout"]
+
+    num_epochs = args["num_epochs"]
+    batch_size = args["batch_size"] 
+
+    # model_name = args["model"]
+    # model = MODELS[model_name](
+    #     num_channels=num_channels, num_classes=num_classes, dropout=dropout
+    # )
+
+    # data_manifest = args["data_manifest"]
     dataset_name = args["dataset"]
-    dataset = DATASETS[dataset_name](data_manifest)
+    dataset = DATASETS[dataset_name]()
 
     val_percent = args["val_percent"]
     num_validation = int(len(dataset) * val_percent)
-    num_train = len(dataset) - num_validation
+    num_train = len(dataset) - num_validation  
 
     logging.info(
         f"""
@@ -289,17 +293,14 @@ def main():
 
     optimizer_name = args["optimizer"]
     Optimizer = OPTIMIZERS[optimizer_name]
-    if optimizer_name == "SGD":
-        nesterov = args["nesterov"]
-        lr = args["lr"]
-        momentum = args["momentum"]
-        weight_decay = args["weight_decay"]        
-        optimizer = Optimizer(
-            model.parameters(), lr=lr, momentum=momentum, 
-            weight_decay=weight_decay, nesterov=nesterov          
-        )
-    else:
-        raise NotImplementedError(f"Optimizer {optimizer_name} not known.")
+    # if optimizer_name == "SGD":
+    #     nesterov = args["nesterov"]
+    #     lr = args["lr"]
+    #     momentum = args["momentum"]
+    #     weight_decay = args["weight_decay"]        
+    optimizer = Optimizer(model.parameters())
+    # else:
+    #     raise NotImplementedError(f"Optimizer {optimizer_name} not known.")
 
     scheduler_name = args["scheduler"]
     Scheduler = SCHEDULERS[scheduler_name]
@@ -309,6 +310,12 @@ def main():
         scheduler = Scheduler(
             optimizer, step_size=step_size, gamma=scheduler_gamma
         )
+
+    args = get_args(
+        script_path=SCRIPT_PATH, log_filepath=log_filepath, 
+        **args, **model.args, **dataset.args, **optimizer.args,
+        experiment_id = experiment_id, time = time_str
+    )
 
     use_mp = args["mixed_precision"]
 
@@ -329,11 +336,13 @@ def main():
         for batch in train_loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
             X_num_channels = X.shape[channel_axis]
-            assert X_num_channels == model.num_channels, \
-                f"Network has been defined with {model.num_channels}" \
+            assert X_num_channels == model_num_channels, \
+                f"Network has been defined with {model_num_channels}" \
                 f"input channels, but loaded images have {X_num_channels}" \
                 "channels. Please check that the images are loaded correctly."
             
+            # logging.info(f"X size: {X.shape}")
+            # logging.info(f"Y size: {Y.shape}")
             X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
             Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
             optimizer.zero_grad()
@@ -360,8 +369,8 @@ def main():
         for batch in validation__loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
             X_num_channels = X.shape[channel_axis]
-            assert X_num_channels == model.num_channels, \
-                f"Network has been defined with {model.num_channels}" \
+            assert X_num_channels == model_num_channels, \
+                f"Network has been defined with {model_num_channels}" \
                 f"input channels, but loaded images have {X_num_channels}" \
                 "channels. Please check that the images are loaded correctly."
             

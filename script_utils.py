@@ -25,6 +25,12 @@ except NotImplementedError:
     using_sysrandom = False
 
 
+def parse_args(parser: argparse.ArgumentParser) -> dict:
+    args, _ = parser.parse_known_args()
+    args = vars(args)
+    return args        
+
+
 def get_random_string(length=12,
                       allowed_chars='abcdefghijklmnopqrstuvwxyz'
                                     'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'):
@@ -52,11 +58,11 @@ def get_random_string(length=12,
 
 
 def arg_is_true(arg_str: str) -> bool:
-    return arg_str in ("True", "TRUE", "true", "T", "t")
+    return arg_str in (True, "True", "TRUE", "true", "T", "t")
 
 
 def arg_is_false(arg_str: str) -> bool:
-    return arg_str in ("False", "FALSE", "false", "F", "f")
+    return arg_str in (False, "False", "FALSE", "false", "F", "f")
 
 
 def get_args(

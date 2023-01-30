@@ -1,3 +1,4 @@
+import argparse
 import glob
 import json
 import os
@@ -11,22 +12,45 @@ from osgeo import gdal
 from PIL import Image
 from torch.utils.data import Dataset
 
+from script_utils import parse_args
+
 
 class EurosatDataset(Dataset):
     __name__ = "EurosatDataset"
 
+    DEFAULT_DATA_MANIFEST: str = "eurosat_manifest.json"
+    DEFAULT_BANDS: List[int] = [1, 2, 3, 7]
 
-    def __init__(
-        self, data_manifest_path, bands = [1, 2, 3, 7]
-    ):
+
+    def __init__(self):
+        args = self.parse_args()
+        data_manifest_path: str = args["data_manifest"]
+        bands: List[str] = args["bands"]
         with open(data_manifest_path) as f:
             data_dict = json.load(f)
+        self.args = args
 
         dir_path = data_dict["dir_path"]
         filepaths = glob.glob(dir_path + "/**/*.tif", recursive=True)
         self.filepaths = filepaths
         self.categories = data_dict["categories"]
         self.bands = bands
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--data-manifest",
+            default=self.DEFAULT_DATA_MANIFEST
+        )  
+        parser.add_argument(
+            "--bands",
+            nargs="+",
+            type=int,
+            default=self.DEFAULT_BANDS
+        )
+        args = parse_args(parser=parser)
+        return args        
 
 
     def __len__(self):
@@ -114,10 +138,15 @@ class EurosatDataset(Dataset):
 class ConvLSTMCDataset(Dataset):
     __name__ = "ConvLSTMCDataset"
 
+    DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
 
-    def __init__(self, data_manifest_path: str):
+
+    def __init__(self):
+        args = self.parse_args()
+        data_manifest_path = args["data_manifest"]
         with open(data_manifest_path) as f:
             data_dict = json.load(f)
+        self.args = args            
 
         dir_path = data_dict["dir_path"]
         samples = list()
@@ -134,6 +163,16 @@ class ConvLSTMCDataset(Dataset):
 
         self.samples = samples
         self.categories = data_dict["categories"]
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--data-manifest",
+            default=self.DEFAULT_DATA_MANIFEST
+        )
+        args = parse_args(parser=parser)
+        return args              
 
 
     def __len__(self):

@@ -1,10 +1,20 @@
-from typing import Optional
+import argparse
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from torchvision.models import resnet101
+from torchvision import models
+
+from script_utils import arg_is_true, parse_args
+
+BACKBONES = {
+    "resnet18": models.resnet18,
+    "resnet34": models.resnet34,
+    "resnet50": models.resnet50,
+    "resnet101": models.resnet101,
+    "resnet152": models.resnet152
+}
 
 
 class Fire(nn.Module):
@@ -38,14 +48,19 @@ class Fire(nn.Module):
 class SqueezeNet(nn.Module):
     __name__ = "SqueezeNet"
 
+    DEFAULT_NUM_CHANNLES: int = 4
+    DEFAULT_NUM_CLASSES: int = 10
+    DEFAULT_DROPOUT: float = 0.5
 
-    def __init__(
-        self, num_channels: int = 4, num_classes: int = 10, 
-        dropout: float = 0.5
-    ) -> None:
+
+    def __init__(self) -> None:
         super().__init__()
-        self.num_channels = num_channels
-        self.num_classes = num_classes
+        args = self.parse_args()
+        num_channels: int = args["num_channels"]
+        num_classes: int = args["num_classes"]
+        dropout: float = args["dropout"]
+        self.args = args
+
         self.features = nn.Sequential(
             nn.Conv2d(num_channels, 64, kernel_size=3, stride=2),
             nn.ReLU(inplace=True),
@@ -63,7 +78,7 @@ class SqueezeNet(nn.Module):
         )
 
         # Final convolution is initialized differently from the rest
-        final_conv = nn.Conv2d(512, self.num_classes, kernel_size=1)
+        final_conv = nn.Conv2d(512, num_classes, kernel_size=1)
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout), final_conv, nn.ReLU(inplace=True), 
             nn.AdaptiveAvgPool2d((1, 1))
@@ -77,6 +92,27 @@ class SqueezeNet(nn.Module):
                     init.kaiming_uniform_(m.weight)
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
+
+    
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--num-channels",
+            default=self.DEFAULT_NUM_CHANNLES,
+            type=int
+        )
+        parser.add_argument(
+            "--num-classes",
+            default=self.DEFAULT_NUM_CLASSES,
+            type=int
+        )
+        parser.add_argument(
+            "--dropout",
+            default=self.DEFAULT_DROPOUT,
+            type=float
+        )
+        args = parse_args(parser=parser)
+        return args
 
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -96,13 +132,12 @@ class SpectrumNet(SqueezeNet):
     __name__ = "SpectrumNet"
 
 
-    def __init__(
-        self, num_channels: int = 4, num_classes: int = 10, 
-        dropout: float = 0.5
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.num_channels = num_channels
-        self.num_classes = num_classes
+        num_channels: int = self.args["num_channels"]
+        num_classes: int = self.args["num_classes"]
+        dropout: float = self.args["dropout"]
+        
         self.features = nn.Sequential(
             nn.Conv2d(num_channels, 96, kernel_size=2, stride=1),
             nn.ReLU(inplace=True),
@@ -119,7 +154,7 @@ class SpectrumNet(SqueezeNet):
         )
 
         # Final convolution is initialized differently from the rest
-        final_conv = nn.Conv2d(512, self.num_classes, kernel_size=1, stride=1)
+        final_conv = nn.Conv2d(512, num_classes, kernel_size=1, stride=1)
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout), final_conv, nn.ReLU(inplace=True), 
             nn.AdaptiveAvgPool2d((1, 1))
@@ -138,19 +173,71 @@ class SpectrumNet(SqueezeNet):
 class CNNLSTM(nn.Module):
     __name__ = "CNNLSTM"
 
+    DEFAULT_NUM_CHANNLES: int = 3
+    DEFAULT_NUM_CLASSES: int = 2
+    DEFAULT_DROPOUT: bool = False
+    DEFAULT_FREEZE_BACKBONE_PARAMS: bool = True
+    DEFAULT_BACKBONE_NAME: str = "resnet101"
 
-    def __init__(self, num_channels: int, num_classes: int, dropout: Optional[float] = 0.0):
+
+    def __init__(self):
+        super().__init__()
+        args = self.parse_args()
+        num_channels: int = args["num_channels"]
+        num_classes: int = args["num_classes"]
+        dropout: float = args["dropout"]
+        freeze_backbone_params: bool = arg_is_true(args["freeze_backbone_params"])
+        backbone_name: str = args["backbone"]
+
         assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."
         assert not dropout, "Dropout not implemented for this class."
-        self.num_channels = num_channels
-        self.num_classes = num_classes
-        self.dropout = dropout
-        super(CNNLSTM, self).__init__()
-        self.resnet = resnet101(pretrained=True)
+        # self.num_channels = num_channels
+        # self.num_classes = num_classes
+        # self.dropout = dropout
+
+        self.args = args 
+
+        # self.resnet = resnet101(pretrained=True)
+
+        self.resnet = BACKBONES[backbone_name](pretrained=True)
+
+        if freeze_backbone_params:
+            self.resnet.requires_grad_(False)
         self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
+        self.resnet.fc.requires_grad_(True)
         self.lstm = nn.LSTM(input_size=300, hidden_size=256, num_layers=3)
         self.fc1 = nn.Linear(256, 128)
         self.fc2 = nn.Linear(128, num_classes)
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--num-channels",
+            default=self.DEFAULT_NUM_CHANNLES,
+            type=int
+        )
+        parser.add_argument(
+            "--num-classes",
+            default=self.DEFAULT_NUM_CLASSES,
+            type=int
+        )
+        parser.add_argument(
+            "--dropout",
+            default=self.DEFAULT_DROPOUT,
+            type=float
+        )
+        parser.add_argument(
+            "--freeze-backbone-params",
+            default=self.DEFAULT_FREEZE_BACKBONE_PARAMS
+        )
+        parser.add_argument(
+            "--backbone",
+            default=self.DEFAULT_BACKBONE_NAME
+        )
+        args = parse_args(parser=parser)
+        return args
+
        
     def forward(self, x_3d):
         hidden = None
