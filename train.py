@@ -38,6 +38,7 @@ DEFAULT_MIXED_PRECISION = True
 DEFAULT_SAVE_MODEL = True
 DEFAULT_SAVE_EVERY = 8
 DEFAULT_CHANNEL_AXIS = 1
+DEFAULT_EXPERIMENT_DIR: str = "experiments/"
 
 DEFAULT_SEED = 8675309
 torch.manual_seed(DEFAULT_SEED)
@@ -192,15 +193,28 @@ def parse_args():
         "--channel-axis",
         default=DEFAULT_CHANNEL_AXIS,
         type=int
-    )         
+    )
+    parser.add_argument(
+        "--experiment-dir",
+        default=DEFAULT_EXPERIMENT_DIR
+    )       
+    parser.add_argument(
+        "--id"
+    )           
     p_args, _ = parser.parse_known_args()
     return p_args    
 
 
 def main():
-    experiment_id = get_random_string()
+
+    args = vars(parse_args())
+    if not args["id"]:
+        experiment_id = get_random_string()
+    else:
+        experiment_id = args["id"]
+    experiment_super_dir = args["experiment_dir"]
     experiment_dir = os.path.join(
-        DEFAULT_EXPERIMENT_DIR, experiment_id + "/"
+        experiment_super_dir, experiment_id + "/"
     ).replace("\\", "/")
     log_dir = os.path.join(experiment_dir, 'logs/').replace("\\", "/")
     save_dir = os.path.join(
