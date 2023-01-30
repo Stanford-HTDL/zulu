@@ -1,9 +1,10 @@
 import argparse
 import glob
 import json
+import logging
 import os
 import random
-from typing import List
+from typing import Generator, List
 
 import numpy as np
 import torch
@@ -12,7 +13,7 @@ from osgeo import gdal
 from PIL import Image
 from torch.utils.data import Dataset
 
-from script_utils import parse_args, arg_is_true
+from script_utils import arg_is_true, parse_args
 
 
 class EurosatDataset(Dataset):
@@ -267,7 +268,40 @@ class ConvLSTMCDataset(Dataset):
         return {
             'X': image_arrays,
             'Y': target
-        } 
+        }
+
+
+    @staticmethod
+    def sample_gen(dir_path: str) -> Generator:
+        def read_png_as_arr(filepath: str) -> np.ndarray:
+            img = Image.open(filepath).convert('RGB')
+            arr = np.array(img)
+            return arr
+
+
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            if not dirnames:
+                image_arrays: list = list()
+                for filename in filenames:
+                    filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+                    assert os.path.exists(filepath), f"File {filepath} does not exist."
+                    arr = read_png_as_arr(filepath=filepath)
+                    image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+                    image_arrays.append(image)
+
+                image_arrays = torch.stack(image_arrays, 0)
+                image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
+                image_arrays = image_arrays[None, :, :, :, :]
+
+                yield {
+                    'X': image_arrays,
+                    'Y': None
+                }
+
+
+    @staticmethod
+    def save_preds(pred: torch.tensor):
+        logging.info(f"Prediction: \n {pred}")                 
 
 
 # @TODO: IMPLEMENT
