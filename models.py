@@ -181,6 +181,8 @@ class CNNLSTM(nn.Module):
     DEFAULT_DROPOUT: bool = False
     DEFAULT_FREEZE_BACKBONE_PARAMS: bool = True
     DEFAULT_BACKBONE_NAME: str = "resnet101"
+    DEFAULT_LSTM_LAYERS: int = 3
+    DEFAULT_LSTM_HIDDEN_SIZE: int = 256
 
 
     def __init__(self):
@@ -191,16 +193,13 @@ class CNNLSTM(nn.Module):
         dropout: float = args["dropout"]
         freeze_backbone_params: bool = arg_is_true(args["freeze_backbone_params"])
         backbone_name: str = args["backbone"]
+        num_layers: int = args["lstm_layers"]
+        lstm_hidden_size: int = args["lstm_hidden_size"]
 
         assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."
         assert not dropout, "Dropout not implemented for this class."
-        # self.num_channels = num_channels
-        # self.num_classes = num_classes
-        # self.dropout = dropout
 
         self.args = args 
-
-        # self.resnet = resnet101(pretrained=True)
 
         self.resnet = BACKBONES[backbone_name](pretrained=True)
 
@@ -208,7 +207,7 @@ class CNNLSTM(nn.Module):
             self.resnet.requires_grad_(False)
         self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
         self.resnet.fc.requires_grad_(True)
-        self.lstm = nn.LSTM(input_size=300, hidden_size=256, num_layers=3)
+        self.lstm = nn.LSTM(input_size=300, hidden_size=lstm_hidden_size, num_layers=num_layers)
         self.fc1 = nn.Linear(256, 128)
         self.fc2 = nn.Linear(128, num_classes)
 
@@ -238,6 +237,16 @@ class CNNLSTM(nn.Module):
             "--backbone",
             default=self.DEFAULT_BACKBONE_NAME
         )
+        parser.add_argument(
+            "--lstm-layers",
+            default=self.DEFAULT_LSTM_LAYERS,
+            type=int
+        )
+        parser.add_argument(
+            "--lstm-hidden-size",
+            default=self.DEFAULT_LSTM_HIDDEN_SIZE,
+            type=int
+        )                 
         args = parse_args(parser=parser)
         return args
 

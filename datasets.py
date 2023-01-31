@@ -270,12 +270,12 @@ class ConvLSTMCDataset(Dataset):
 
         return {
             'X': image_arrays,
-            'Y': target
+            'Y': target,
         }
 
 
     @staticmethod
-    def sample_gen(dir_path: str) -> Generator:
+    def sample_gen(dir_path: str, **kwargs) -> Generator:
         def read_png_as_arr(filepath: str) -> np.ndarray:
             img = Image.open(filepath).convert('RGB')
             arr = np.array(img)
@@ -298,13 +298,27 @@ class ConvLSTMCDataset(Dataset):
 
                 yield {
                     'X': image_arrays,
-                    'Y': None
+                    'Y': None,
+                    "dirpath": dirpath,
+                    # "filenames": filenames                    
                 }
 
 
     @staticmethod
-    def save_preds(pred: torch.tensor):
-        logging.info(f"Prediction: \n {pred}")                 
+    def save_preds(input: dict, output: torch.tensor, **kwargs):
+        dirpath: str = input["dirpath"]
+        result: dict = {
+            "Negative": float(output[0, 0]),
+            "Positive": float(output[0, 1])
+        }
+        logging.info(
+            f"""
+                    Sample: {dirpath}
+                    Positive: {result["Positive"]}
+                    Negative: {result["Negative"]}
+            """
+        )
+        # logging.info(f"Prediction: \n {output}")                 
 
 
 # @TODO: IMPLEMENT

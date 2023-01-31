@@ -23,3 +23,7 @@ EUROSATOUTPATH=../eurosat.zip
 wget -O $EUROSATOUTPATH $EUROSATPATH
 sudo apt-get install unzip
 unzip $EUROSATOUTPATH -d ../eurosat/
+
+### Inpot necessary packages from PYPI ###
+conda run -n $CONDAENV pip3 install light-pipe \
+    && pip3 install Pillow
