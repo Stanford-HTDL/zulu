@@ -1,3 +1,6 @@
+__author__ = "Richard Correro (richard@richardcorrero.com)"
+
+
 import argparse
 
 import torch

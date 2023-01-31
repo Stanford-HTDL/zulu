@@ -1,16 +1,15 @@
+__author__ = "Richard Correro (richard@richardcorrero.com)"
+
+
 import argparse
 import logging
 import os
 import time
-from typing import Generator
 
-import numpy as np
 import torch
-from PIL import Image
 
-from datasets import ConvLSTMCDataset, EurosatDataset
+from datasets import ConvLSTMCDataset
 from models import CNNLSTM, SpectrumNet, SqueezeNet
-# from optimizers import SGD
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
