@@ -165,11 +165,17 @@ class ConvLSTMCDataset(Dataset):
         verbose: bool = arg_is_true(args["verbose"])
         if verbose:
             print(f"Loading samples from {dir_path}")
+            num_pos: int = 0
+            num_neg: int = 0
         samples = list()
         for dirpath, dirnames, filenames in os.walk(dir_path):
             if not dirnames:
                 for key, value in data_dict["categories"].items():
                     if key in dirpath:
+                        if verbose and value:
+                            num_pos += 1
+                        elif verbose:
+                            num_neg += 1
                         sample_dict = {
                             "dirpath": dirpath,
                             "filenames": filenames,
@@ -185,11 +191,18 @@ class ConvLSTMCDataset(Dataset):
                             )
                         samples.append(sample_dict)
         if verbose:
-            print("Done loading samples.")
+            print(
+                f"""
+                Done loading samples.
+                Number of positive samples: {num_pos}
+                Number of negative samples: {num_neg}
+                """
+            )
 
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
+        self.verbose = verbose
 
 
     def parse_args(self):
