@@ -87,7 +87,6 @@ class ConvLSTMCProcessor(Processor):
             for dirpath, dirnames, filenames in os.walk(dir_path):
                 if not dirnames:
                     filenames = sort_filenames(filenames)
-                    print(filenames)
                     yield dirpath, filenames
 
 
