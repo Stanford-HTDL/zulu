@@ -210,15 +210,15 @@ def main():
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-    logging.info(f'Using device {device}')       
+    # logging.info(f'Using device {device}')       
 
     model_name = args["model"]
     model: torch.nn.Module = MODELS[model_name]()   
 
     model_filepath = args["model_filepath"]
-    if model_filepath:
-        model.load_state_dict(torch.load(model_filepath, map_location=device))
-        logging.info(f'Model loaded from {model_filepath}')     
+    # if model_filepath:
+    #     model.load_state_dict(torch.load(model_filepath, map_location=device))
+    #     logging.info(f'Model loaded from {model_filepath}')     
 
     model = model.to(device=device)  
     model_num_channels = model.args["num_channels"] # A constraint on the Model class        
@@ -233,12 +233,12 @@ def main():
     num_validation = int(len(dataset) * val_percent)
     num_train = len(dataset) - num_validation  
 
-    logging.info(
-        f"""
-                Number of training samples:   {num_train}
-                Number of validation samples: {num_validation}
-        """
-    )
+    # logging.info(
+    #     f"""
+    #             Number of training samples:   {num_train}
+    #             Number of validation samples: {num_validation}
+    #     """
+    # )
     train_set, validation_set = torch.utils.data.random_split(
             dataset, [num_train, num_validation], 
             generator=torch.Generator().manual_seed(DEFAULT_SEED)
@@ -274,6 +274,19 @@ def main():
         **args, **model.args, **dataset.args, **optimizer.args,
         experiment_id = experiment_id, time = time_str
     )
+
+    logging.info(f'Using device {device}') 
+
+    if model_filepath:
+        model.load_state_dict(torch.load(model_filepath, map_location=device))
+        logging.info(f'Model loaded from {model_filepath}')  
+
+    logging.info(
+        f"""
+                Number of training samples:   {num_train}
+                Number of validation samples: {num_validation}
+        """
+    )                    
 
     use_mp = args["mixed_precision"]
 

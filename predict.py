@@ -105,7 +105,7 @@ def main():
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-    logging.info(f'Using device {device}')       
+    # logging.info(f'Using device {device}')       
 
     model_name = args["model"]
     model: torch.nn.Module = MODELS[model_name]()    
@@ -117,7 +117,7 @@ def main():
     model_num_channels = model.args["num_channels"] # A constraint on the Model class
     channel_axis: int = args["channel_axis"]    
 
-    logging.info(f'Model loaded from {model_filepath}')  
+    # logging.info(f'Model loaded from {model_filepath}')
 
     pred_processor_name: str = args["pred_processor"]
     pred_processor: Processor = PRED_PROCESSORS[pred_processor_name]()
@@ -126,6 +126,9 @@ def main():
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
         **args, **model.args, experiment_id = experiment_id, time = time_str
     )
+
+    logging.info(f'Using device {device}')
+    logging.info(f'Model loaded from {model_filepath}')     
 
     data_dir = args["data_dir"]
 
