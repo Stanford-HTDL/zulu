@@ -19,13 +19,13 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
-BACKBONE_WEIGHTS = {
-    "resnet18": models.ResNet18_Weights.DEFAULT,
-    "resnet34": models.ResNet34_Weights.DEFAULT,
-    "resnet50": models.ResNet50_Weights.DEFAULT,
-    "resnet101": models.ResNet101_Weights.DEFAULT,
-    "resnet152": models.ResNet152_Weights.DEFAULT  
-}
+# BACKBONE_WEIGHTS = {
+#     "resnet18": models.ResNet18_Weights.DEFAULT,
+#     "resnet34": models.ResNet34_Weights.DEFAULT,
+#     "resnet50": models.ResNet50_Weights.DEFAULT,
+#     "resnet101": models.ResNet101_Weights.DEFAULT,
+#     "resnet152": models.ResNet152_Weights.DEFAULT  
+# }
 
 
 class Fire(nn.Module):
