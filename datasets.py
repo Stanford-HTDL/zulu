@@ -190,7 +190,6 @@ class ConvLSTMCDataset(Dataset):
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
-        exit()
 
 
     def parse_args(self):
