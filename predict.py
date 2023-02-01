@@ -136,6 +136,7 @@ def main():
     # samples = sample_generator(dir_path=data_dir)
     samples = pred_processor.make_samples(dir_path=data_dir)
 
+    model.eval()
     sample_idx: int = 0
     for sample in samples:
         sample_idx += 1

@@ -7,11 +7,12 @@ import json
 import logging
 import os
 import random
-from typing import Generator, List
+from typing import Generator, List, Optional
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
+import torchvision.transforms as T
 from osgeo import gdal
 from PIL import Image
 from torch.utils.data import Dataset
@@ -199,6 +200,16 @@ class ConvLSTMCDataset(Dataset):
                 """
             )
 
+        self.transforms = T.Compose([
+            T.Resize((224,224)),
+            # T.CenterCrop((224,224)),
+            T.ToTensor(),
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])                
+
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
@@ -224,14 +235,20 @@ class ConvLSTMCDataset(Dataset):
 
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.samples)    
 
 
-    @staticmethod
-    def read_png_as_arr(filepath: str) -> np.ndarray:
+    def read_png(self, filepath: str) -> np.ndarray:
         img = Image.open(filepath).convert('RGB')
+        # arr = np.array(img)
+        return img
+
+
+    def read_png_as_arr(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        # img = self.transforms(img)
         arr = np.array(img)
-        return arr
+        return arr      
 
 
     @staticmethod
@@ -288,14 +305,16 @@ class ConvLSTMCDataset(Dataset):
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
             assert os.path.exists(filepath), f"File {filepath} does not exist."
-            arr = self.read_png_as_arr(filepath=filepath)
-            image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+            image: torch.tensor = self.read_png(filepath=filepath)
+            image: torch.tensor = self.transforms(image)
+            image: torch.tensor = image.float().contiguous()
+            # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
             if self.use_data_aug:
                 image = self.spatial_transform(image, idx=transform_idx)
             image_arrays.append(image)
 
         image_arrays = torch.stack(image_arrays, 0)
-        image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
+        # image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
 
         target: torch.tensor = torch.as_tensor(sample["label"])
 
@@ -305,51 +324,51 @@ class ConvLSTMCDataset(Dataset):
         }
 
 
-    @staticmethod
-    def sample_gen(dir_path: str, **kwargs) -> Generator:
-        def read_png_as_arr(filepath: str) -> np.ndarray:
-            img = Image.open(filepath).convert('RGB')
-            arr = np.array(img)
-            return arr
+    # @staticmethod
+    # def sample_gen(dir_path: str, **kwargs) -> Generator:
+    #     def read_png_as_arr(filepath: str) -> np.ndarray:
+    #         img = Image.open(filepath).convert('RGB')
+    #         arr = np.array(img)
+    #         return arr
 
 
-        for dirpath, dirnames, filenames in os.walk(dir_path):
-            if not dirnames:
-                image_arrays: list = list()
-                for filename in filenames:
-                    filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
-                    assert os.path.exists(filepath), f"File {filepath} does not exist."
-                    arr = read_png_as_arr(filepath=filepath)
-                    image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
-                    image_arrays.append(image)
+    #     for dirpath, dirnames, filenames in os.walk(dir_path):
+    #         if not dirnames:
+    #             image_arrays: list = list()
+    #             for filename in filenames:
+    #                 filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+    #                 assert os.path.exists(filepath), f"File {filepath} does not exist."
+    #                 arr = read_png_as_arr(filepath=filepath)
+    #                 image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+    #                 image_arrays.append(image)
 
-                image_arrays = torch.stack(image_arrays, 0)
-                image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
-                image_arrays = image_arrays[None, :, :, :, :]
+    #             image_arrays = torch.stack(image_arrays, 0)
+    #             image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
+    #             image_arrays = image_arrays[None, :, :, :, :]
 
-                yield {
-                    'X': image_arrays,
-                    'Y': None,
-                    "dirpath": dirpath,
-                    # "filenames": filenames                    
-                }
+    #             yield {
+    #                 'X': image_arrays,
+    #                 'Y': None,
+    #                 "dirpath": dirpath,
+    #                 # "filenames": filenames                    
+    #             }
 
 
-    @staticmethod
-    def save_preds(input: dict, output: torch.tensor, **kwargs):
-        dirpath: str = input["dirpath"]
-        result: dict = {
-            "Negative": float(output[0, 0]),
-            "Positive": float(output[0, 1])
-        }
-        logging.info(
-            f"""
-                    Sample: {dirpath}
-                    Positive: {result["Positive"]}
-                    Negative: {result["Negative"]}
-            """
-        )
-        # logging.info(f"Prediction: \n {output}")                 
+    # @staticmethod
+    # def save_preds(input: dict, output: torch.tensor, **kwargs):
+    #     dirpath: str = input["dirpath"]
+    #     result: dict = {
+    #         "Negative": float(output[0, 0]),
+    #         "Positive": float(output[0, 1])
+    #     }
+    #     logging.info(
+    #         f"""
+    #                 Sample: {dirpath}
+    #                 Positive: {result["Positive"]}
+    #                 Negative: {result["Negative"]}
+    #         """
+    #     )
+    #     # logging.info(f"Prediction: \n {output}")                 
 
 
 # @TODO: IMPLEMENT

@@ -19,6 +19,14 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
+BACKBONE_WEIGHTS = {
+    "resnet18": models.ResNet18_Weights.DEFAULT,
+    "resnet34": models.ResNet34_Weights.DEFAULT,
+    "resnet50": models.ResNet50_Weights.DEFAULT,
+    "resnet101": models.ResNet101_Weights.DEFAULT,
+    "resnet152": models.ResNet152_Weights.DEFAULT  
+}
+
 
 class Fire(nn.Module):
     def __init__(
@@ -200,6 +208,9 @@ class CNNLSTM(nn.Module):
         assert not dropout, "Dropout not implemented for this class."
 
         self.args = args 
+
+        # weights = BACKBONE_WEIGHTS[backbone_name]
+        # self.transforms = weights.transforms
 
         self.resnet = BACKBONES[backbone_name](pretrained=True)
 
