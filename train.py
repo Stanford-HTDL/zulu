@@ -11,7 +11,7 @@ import torch
 from datasets import ConvLSTMCDataset, EurosatDataset
 from models import CNNLSTM, SpectrumNet, SqueezeNet
 from optimizers import SGD
-from script_utils import get_args, get_random_string, arg_is_true
+from script_utils import get_args, get_random_string, arg_is_true, arg_is_false
 
 SCRIPT_PATH = os.path.basename(__file__)
 
@@ -275,13 +275,15 @@ def main():
     optimizer = Optimizer(model.parameters())
 
     scheduler_name = args["scheduler"]
-    Scheduler = SCHEDULERS[scheduler_name]
-    if scheduler_name == "StepLR":
-        step_size = args["step_size"]
-        scheduler_gamma = args["scheduler_gamma"]
-        scheduler = Scheduler(
-            optimizer, step_size=step_size, gamma=scheduler_gamma
-        )
+    use_scheduler: bool = not arg_is_false(scheduler_name)
+    if use_scheduler:
+        Scheduler = SCHEDULERS[scheduler_name]
+        if scheduler_name == "StepLR":
+            step_size = args["step_size"]
+            scheduler_gamma = args["scheduler_gamma"]
+            scheduler = Scheduler(
+                optimizer, step_size=step_size, gamma=scheduler_gamma
+            )
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
@@ -340,7 +342,8 @@ def main():
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
-        scheduler.step()
+        if use_scheduler:
+            scheduler.step()
 
         logging.info(
             f"""
