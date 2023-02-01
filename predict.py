@@ -97,8 +97,6 @@ def main():
     log_filepath = os.path.join(
         log_dir, f"{SCRIPT_PATH}_{time_str}_{experiment_id}.log"
     ).replace('\\', '/')
-    
-    args = vars(parse_args())
 
     device = args["device"]
     if device == DEFAULT_DEVICE:

@@ -122,7 +122,7 @@ def get_args(
         if verbose:
             for key, value in p_args.items():
                 if key in secret_keys:
-                    logging.info(f"{key}: REDACTED FOR PRIVACY")
+                    logging.info(f"{key}: <REDACTED>")
                 else:
                     logging.info(f"{key}: {value}")
     return p_args

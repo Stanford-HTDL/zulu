@@ -201,9 +201,7 @@ def main():
         ).replace('\\', '/')
         validation_loss_path: str = os.path.join(
             log_dir, f"{SCRIPT_PATH}_{time_str}_{experiment_id}_validation_loss.txt"
-        ).replace('\\', '/')    
-    
-    args = vars(parse_args())
+        ).replace('\\', '/')   
 
     device = args["device"]
     if device == DEFAULT_DEVICE:
