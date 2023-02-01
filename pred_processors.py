@@ -4,7 +4,7 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 import argparse
 import logging
 import os
-from typing import Generator, Optional
+from typing import Generator, List, Optional
 
 import numpy as np
 import torch
@@ -60,9 +60,16 @@ class ConvLSTMCProcessor(Processor):
             return arr
 
 
+        def sort_filenames(filenames: List[str]) -> List[str]:
+            filenames_sorted = sorted(filenames)
+            return filenames_sorted            
+
+
         def walk_dir(dir_path: str) -> Generator:
             for dirpath, dirnames, filenames in os.walk(dir_path):
                 if not dirnames:
+                    filenames = sort_filenames(filenames)
+                    print(filenames)
                     yield dirpath, filenames
 
 
