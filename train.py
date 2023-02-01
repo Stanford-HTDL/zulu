@@ -244,10 +244,18 @@ def main():
     #             Number of validation samples: {num_validation}
     #     """
     # )
-    train_set, validation_set = torch.utils.data.random_split(
-            dataset, [num_train, num_validation], 
-            generator=torch.Generator().manual_seed(DEFAULT_SEED)
-    )
+
+    validation = arg_is_true(args["validation"])
+
+    if validation:
+        train_set, validation_set = torch.utils.data.random_split(
+                dataset, [num_train, num_validation], 
+                generator=torch.Generator().manual_seed(DEFAULT_SEED)
+        )
+    else:
+        train_set = dataset
+        num_train: int = len(dataset)
+        num_validation: int = 0
 
     shuffle = args["shuffle"]
     num_workers = args["num_workers"]
@@ -256,10 +264,11 @@ def main():
         train_set, shuffle=shuffle, batch_size=batch_size, 
         num_workers=num_workers, pin_memory=pin_memory,
     )
-    validation__loader = torch.utils.data.DataLoader(
-        validation_set, shuffle=shuffle, batch_size=batch_size, 
-        num_workers=num_workers, pin_memory=pin_memory
-    )    
+    if validation:
+        validation__loader = torch.utils.data.DataLoader(
+            validation_set, shuffle=shuffle, batch_size=batch_size, 
+            num_workers=num_workers, pin_memory=pin_memory
+        )    
 
     optimizer_name = args["optimizer"]
     Optimizer = OPTIMIZERS[optimizer_name]      
@@ -303,8 +312,6 @@ def main():
     save_every = args["save_every"]
 
     channel_axis = args["channel_axis"]
-
-    validation = arg_is_true(args["validation"])
 
     ### Train Loop Begins ###
     logging.info("Starting training...")
