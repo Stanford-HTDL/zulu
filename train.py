@@ -314,14 +314,14 @@ def main():
             optimizer.step()
         scheduler.step()
 
-        # logging.info(
-        #     f"""
-        #             Epoch {epoch} training completed.
-        #             Train loss: {train_loss:.5f}.\
+        logging.info(
+            f"""
+                    Epoch {epoch} training completed.
+                    Train loss: {train_loss:.5f}.\
         
-        #             Starting validation...
-        #     """
-        # )
+                    Starting validation...
+            """
+        )
         model.eval()
         validation_loss = 0.0
         for batch in validation__loader:
