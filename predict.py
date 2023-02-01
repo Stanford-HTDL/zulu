@@ -122,6 +122,7 @@ def main():
     pred_processor_name: str = args["pred_processor"]
     pred_processor: Processor = PRED_PROCESSORS[pred_processor_name]()
 
+    # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
         **args, **model.args, experiment_id = experiment_id, time = time_str

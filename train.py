@@ -37,6 +37,7 @@ DEFAULT_CHANNEL_AXIS = 1
 DEFAULT_EXPERIMENT_DIR: str = "experiments/"
 DEFAULT_MODEL_FILEPATH = None
 DEFAULT_SAVE_LOSSES = True
+DEFAULT_VALIDATION = True
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
 torch.manual_seed(DEFAULT_SEED)
@@ -167,7 +168,11 @@ def parse_args():
     parser.add_argument(
         "--save-losses",
         default=DEFAULT_SAVE_LOSSES
-    )                
+    )
+    parser.add_argument(
+        "--validation",
+        default=DEFAULT_VALIDATION
+    )
     p_args, _ = parser.parse_known_args()
     return p_args    
 
@@ -269,6 +274,7 @@ def main():
             optimizer, step_size=step_size, gamma=scheduler_gamma
         )
 
+    # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
         **args, **model.args, **dataset.args, **optimizer.args,
@@ -297,6 +303,8 @@ def main():
     save_every = args["save_every"]
 
     channel_axis = args["channel_axis"]
+
+    validation = arg_is_true(args["validation"])
 
     ### Train Loop Begins ###
     logging.info("Starting training...")
@@ -335,24 +343,25 @@ def main():
                     Starting validation...
             """
         )
-        model.eval()
         validation_loss = 0.0
-        for batch in validation__loader:
-            X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-            X_num_channels = X.shape[channel_axis]
-            assert X_num_channels == model_num_channels, \
-                f"Network has been defined with {model_num_channels}" \
-                f"input channels, but loaded images have {X_num_channels}" \
-                "channels. Please check that the images are loaded correctly."
-            
-            X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
-            Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
-            with torch.autocast(
-                device.type if device.type != "mps" else "cpu", enabled=use_mp 
-            ):
-                Y_hat = model(X)
-                loss = criterion(Y_hat, Y)
-            validation_loss += loss.item()
+        if validation:
+            model.eval()
+            for batch in validation__loader:
+                X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
+                X_num_channels = X.shape[channel_axis]
+                assert X_num_channels == model_num_channels, \
+                    f"Network has been defined with {model_num_channels}" \
+                    f"input channels, but loaded images have {X_num_channels}" \
+                    "channels. Please check that the images are loaded correctly."
+                
+                X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
+                Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
+                with torch.autocast(
+                    device.type if device.type != "mps" else "cpu", enabled=use_mp 
+                ):
+                    Y_hat = model(X)
+                    loss = criterion(Y_hat, Y)
+                validation_loss += loss.item()
 
         logging.info(
             f"""
