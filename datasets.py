@@ -151,7 +151,7 @@ class ConvLSTMCDataset(Dataset):
 
     DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
     DEFAULT_USE_DATA_AUG: bool = True
-    DEFAULT_VERBOSE: bool = True
+    DEFAULT_VERBOSE: bool = False
 
 
     def __init__(self):
@@ -164,7 +164,7 @@ class ConvLSTMCDataset(Dataset):
         dir_path = data_dict["dir_path"]
         verbose: bool = arg_is_true(args["verbose"])
         if verbose:
-            logging.info(f"Loading samples from {dir_path}")
+            print(f"Loading samples from {dir_path}")
         samples = list()
         for dirpath, dirnames, filenames in os.walk(dir_path):
             if not dirnames:
@@ -176,7 +176,7 @@ class ConvLSTMCDataset(Dataset):
                             "label": value
                         }
                         if verbose:
-                            logging.info(
+                            print(
                                 f"""
                                    Sample:
                                 Directory: {dirpath}
@@ -185,11 +185,12 @@ class ConvLSTMCDataset(Dataset):
                             )
                         samples.append(sample_dict)
         if verbose:
-            logging.info("Done loading samples.")
+            print("Done loading samples.")
 
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
+        exit()
 
 
     def parse_args(self):
