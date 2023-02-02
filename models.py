@@ -186,11 +186,14 @@ class CNNLSTM(nn.Module):
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
-    DEFAULT_DROPOUT: bool = False
+    DEFAULT_DROPOUT: float = 0.0
+    DEFAULT_LSTM_DROPOUT: float = 0.0
     DEFAULT_FREEZE_BACKBONE_PARAMS: bool = True
-    DEFAULT_BACKBONE_NAME: str = "resnet101"
+    DEFAULT_BACKBONE_NAME: str = "resnet152"
     DEFAULT_LSTM_LAYERS: int = 3
-    DEFAULT_LSTM_HIDDEN_SIZE: int = 256
+    DEFAULT_FC0_OUT: int = 512
+    DEFAULT_LSTM_HIDDEN_SIZE: int = 256    
+    DEFAULT_FC1_OUT: int = 128
 
 
     def __init__(self):
@@ -198,29 +201,35 @@ class CNNLSTM(nn.Module):
         args = self.parse_args()
         num_channels: int = args["num_channels"]
         num_classes: int = args["num_classes"]
-        dropout: float = args["dropout"]
+        dropout: float = args["dropout"]        
+        lstm_dropout: float = args["lstm_dropout"]
         freeze_backbone_params: bool = arg_is_true(args["freeze_backbone_params"])
         backbone_name: str = args["backbone"]
         num_layers: int = args["lstm_layers"]
+        fc0_out: int = args["fc0_out"]
         lstm_hidden_size: int = args["lstm_hidden_size"]
+        fc1_out: int = args["fc1_out"]
 
         assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."
-        assert not dropout, "Dropout not implemented for this class."
 
         self.args = args 
 
-        # weights = BACKBONE_WEIGHTS[backbone_name]
-        # self.transforms = weights.transforms
-
-        self.resnet = BACKBONES[backbone_name](pretrained=True)
+        resnet = BACKBONES[backbone_name](pretrained=True)
+        modules = list(resnet.children())[:-1] # Remove fully-connected layer
+        self.resnet = nn.Sequential(*modules)
 
         if freeze_backbone_params:
             self.resnet.requires_grad_(False)
-        self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
-        self.resnet.fc.requires_grad_(True)
-        self.lstm = nn.LSTM(input_size=300, hidden_size=lstm_hidden_size, num_layers=num_layers)
-        self.fc1 = nn.Linear(256, 128)
-        self.fc2 = nn.Linear(128, num_classes)
+        # self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
+        # self.resnet.fc.requires_grad_(True)
+        self.fc0 = nn.Linear(resnet.fc.in_features, fc0_out)
+        self.lstm = nn.LSTM(
+            input_size=fc0_out, hidden_size=lstm_hidden_size, num_layers=num_layers,
+            dropout=lstm_dropout
+        )
+        self.fc1 = nn.Linear(lstm_hidden_size, fc1_out)
+        self.dropout = nn.Dropout(p=dropout)
+        self.fc2 = nn.Linear(fc1_out, num_classes)
 
 
     def parse_args(self):
@@ -241,6 +250,11 @@ class CNNLSTM(nn.Module):
             type=float
         )
         parser.add_argument(
+            "--lstm-dropout",
+            default=self.DEFAULT_LSTM_DROPOUT,
+            type=float
+        )        
+        parser.add_argument(
             "--freeze-backbone-params",
             default=self.DEFAULT_FREEZE_BACKBONE_PARAMS
         )
@@ -254,10 +268,20 @@ class CNNLSTM(nn.Module):
             type=int
         )
         parser.add_argument(
+            "--fc0-out",
+            default=self.DEFAULT_FC0_OUT,
+            type=int
+        )
+        parser.add_argument(
             "--lstm-hidden-size",
             default=self.DEFAULT_LSTM_HIDDEN_SIZE,
             type=int
-        )                 
+        )
+        parser.add_argument(
+            "--fc1-out",
+            default=self.DEFAULT_FC1_OUT,
+            type=int
+        )        
         args = parse_args(parser=parser)
         return args
 
@@ -266,10 +290,13 @@ class CNNLSTM(nn.Module):
         hidden = None
         for t in range(x_3d.size(1)):
             with torch.no_grad():
-                x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])  
+                x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])
+                x = x.view(x.size(0), -1) # Flatten output of ResNet
+            x = self.fc0(x)
             out, hidden = self.lstm(x.unsqueeze(0), hidden)         
 
         x = self.fc1(out[-1, :, :])
         x = F.relu(x)
+        x = self.dropout(x)
         x = self.fc2(x)
         return x                    
