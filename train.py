@@ -9,9 +9,9 @@ import time
 import torch
 
 from datasets import ConvLSTMCDataset, EurosatDataset
-from models import CNNLSTM, SpectrumNet, SqueezeNet
+from models import ResNetConvLSTM, SpectrumNet, SqueezeNet
 from optimizers import SGD
-from script_utils import get_args, get_random_string, arg_is_true, arg_is_false
+from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
 
@@ -48,7 +48,7 @@ if torch.cuda.is_available():
 MODELS = {
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
-    CNNLSTM.__name__: CNNLSTM
+    ResNetConvLSTM.__name__: ResNetConvLSTM
 }
 
 DATASETS = {
@@ -220,10 +220,7 @@ def main():
     model_name = args["model"]
     model: torch.nn.Module = MODELS[model_name]()   
 
-    model_filepath = args["model_filepath"]
-    # if model_filepath:
-    #     model.load_state_dict(torch.load(model_filepath, map_location=device))
-    #     logging.info(f'Model loaded from {model_filepath}')     
+    model_filepath = args["model_filepath"]   
 
     model = model.to(device=device)  
     model_num_channels = model.args["num_channels"] # A constraint on the Model class        
@@ -237,13 +234,6 @@ def main():
     val_percent = args["val_percent"]
     num_validation = int(len(dataset) * val_percent)
     num_train = len(dataset) - num_validation  
-
-    # logging.info(
-    #     f"""
-    #             Number of training samples:   {num_train}
-    #             Number of validation samples: {num_validation}
-    #     """
-    # )
 
     validation = arg_is_true(args["validation"])
 

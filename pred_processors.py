@@ -97,11 +97,11 @@ class ConvLSTMCProcessor(Processor):
                 filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
                 assert os.path.exists(filepath), f"File {filepath} does not exist."
                 # arr = read_png_as_arr(filepath=filepath)
-                # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+                # image: torch.Tensor = torch.as_Tensor(arr.copy()).float().contiguous()
                 # image_arrays.append(image)
-                image: torch.tensor = read_png(filepath=filepath)
-                image: torch.tensor = transforms(image)
-                image: torch.tensor = image.float().contiguous()
+                image: torch.Tensor = read_png(filepath=filepath)
+                image: torch.Tensor = transforms(image)
+                image: torch.Tensor = image.float().contiguous()
                 image_arrays.append(image)
 
             image_arrays = torch.stack(image_arrays, 0)
@@ -124,7 +124,7 @@ class ConvLSTMCProcessor(Processor):
         yield from data
 
 
-    def save_results(self, input: dict, output: torch.tensor, **kwargs):
+    def save_results(self, input: dict, output: torch.Tensor, **kwargs):
         dirpath: str = input["dirpath"]
         result: dict = {
             "Negative": float(output[0, 0]),

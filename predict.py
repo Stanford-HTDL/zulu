@@ -8,14 +8,13 @@ import time
 
 import torch
 
-from datasets import ConvLSTMCDataset
-from models import CNNLSTM, SpectrumNet, SqueezeNet
+from models import ResNetConvLSTM, SpectrumNet, SqueezeNet
 from pred_processors import ConvLSTMCProcessor, Processor
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
 
-DEFAULT_MODEL_NAME = CNNLSTM.__name__
+DEFAULT_MODEL_NAME = ResNetConvLSTM.__name__
 DEFAULT_PRED_PROCESSOR = ConvLSTMCProcessor.__name__
 DEFAULT_EXPERIMENT_DIR = "experiments/"
 DEFAULT_DEVICE = "CUDA if available else CPU"
@@ -31,7 +30,7 @@ if torch.cuda.is_available():
 MODELS = {
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
-    CNNLSTM.__name__: CNNLSTM
+    ResNetConvLSTM.__name__: ResNetConvLSTM
 }
 
 PRED_PROCESSORS = {
@@ -140,8 +139,8 @@ def main():
     sample_idx: int = 0
     for sample in samples:
         sample_idx += 1
-        X: torch.tensor = sample["X"]
-        X: torch.tensor = X.to(device=device, dtype=torch.float32)
+        X: torch.Tensor = sample["X"]
+        X: torch.Tensor = X.to(device=device, dtype=torch.float32)
         X_num_channels = X.shape[channel_axis]
         assert X_num_channels == model_num_channels, \
             f"Network has been defined with {model_num_channels}" \

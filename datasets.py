@@ -4,15 +4,14 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 import argparse
 import glob
 import json
-import logging
 import os
 import random
-from typing import Generator, List, Optional
+from typing import List
 
 import numpy as np
 import torch
-import torchvision.transforms.functional as TF
 import torchvision.transforms as T
+import torchvision.transforms.functional as TF
 from osgeo import gdal
 from PIL import Image
 from torch.utils.data import Dataset

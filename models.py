@@ -181,8 +181,8 @@ class SpectrumNet(SqueezeNet):
                     init.constant_(m.bias, 0)
 
 
-class CNNLSTM(nn.Module):
-    __name__ = "CNNLSTM"
+class ResNetConvLSTM(nn.Module):
+    __name__ = "ResNetConvLSTM"
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
@@ -191,7 +191,6 @@ class CNNLSTM(nn.Module):
     DEFAULT_FREEZE_BACKBONE_PARAMS: bool = True
     DEFAULT_BACKBONE_NAME: str = "resnet152"
     DEFAULT_LSTM_LAYERS: int = 3
-    DEFAULT_FC0_OUT: int = 512
     DEFAULT_LSTM_HIDDEN_SIZE: int = 256    
     DEFAULT_FC1_OUT: int = 128
 
@@ -206,7 +205,6 @@ class CNNLSTM(nn.Module):
         freeze_backbone_params: bool = arg_is_true(args["freeze_backbone_params"])
         backbone_name: str = args["backbone"]
         num_layers: int = args["lstm_layers"]
-        fc0_out: int = args["fc0_out"]
         lstm_hidden_size: int = args["lstm_hidden_size"]
         fc1_out: int = args["fc1_out"]
 
@@ -215,18 +213,25 @@ class CNNLSTM(nn.Module):
         self.args = args 
 
         resnet = BACKBONES[backbone_name](pretrained=True)
-        modules = list(resnet.children())[:-1] # Remove fully-connected layer
-        self.resnet = nn.Sequential(*modules)
+
+        resnet_fc_in_features: int  = resnet.fc.in_features
+
+        resnet.fc = nn.Sequential()
+        # resnet.fc = nn.Sequential(nn.Linear(resnet_fc_in_features, 300))
+
+        self.resnet = resnet
 
         if freeze_backbone_params:
             self.resnet.requires_grad_(False)
-        # self.resnet.fc = nn.Sequential(nn.Linear(self.resnet.fc.in_features, 300))
-        # self.resnet.fc.requires_grad_(True)
-        self.fc0 = nn.Linear(resnet.fc.in_features, fc0_out)
+     
         self.lstm = nn.LSTM(
-            input_size=fc0_out, hidden_size=lstm_hidden_size, num_layers=num_layers,
-            dropout=lstm_dropout
+            input_size=resnet_fc_in_features, hidden_size=lstm_hidden_size, 
+            num_layers=num_layers, dropout=lstm_dropout
         )
+        # self.lstm = nn.LSTM(
+        #     input_size=300, hidden_size=lstm_hidden_size, 
+        #     num_layers=num_layers, dropout=lstm_dropout
+        # )           
         self.fc1 = nn.Linear(lstm_hidden_size, fc1_out)
         self.dropout = nn.Dropout(p=dropout)
         self.fc2 = nn.Linear(fc1_out, num_classes)
@@ -268,11 +273,6 @@ class CNNLSTM(nn.Module):
             type=int
         )
         parser.add_argument(
-            "--fc0-out",
-            default=self.DEFAULT_FC0_OUT,
-            type=int
-        )
-        parser.add_argument(
             "--lstm-hidden-size",
             default=self.DEFAULT_LSTM_HIDDEN_SIZE,
             type=int
@@ -291,8 +291,7 @@ class CNNLSTM(nn.Module):
         for t in range(x_3d.size(1)):
             with torch.no_grad():
                 x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])
-                x = x.view(x.size(0), -1) # Flatten output of ResNet
-            x = self.fc0(x)
+                x = x.view(x.size(0), -1) # Flatten output of ResNet            
             out, hidden = self.lstm(x.unsqueeze(0), hidden)         
 
         x = self.fc1(out[-1, :, :])
