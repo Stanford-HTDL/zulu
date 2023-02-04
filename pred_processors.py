@@ -210,12 +210,13 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     ]
 
 
-    def __init__(self):
+    def __init__(self, save_dir: str):
         args = self.parse_args()
         save_manifest: bool = arg_is_true(args["save_manifest"])
         from_local_files = arg_is_true(args["from_local_files"])
         if save_manifest:
-            pred_manifest_path: str = args["pred_manifest"]
+            pred_manifest: str = args["pred_manifest"]
+            pred_manifest_path: str = os.path.join(save_dir, pred_manifest).replace("\\", "/")
             # os.makedirs(os.path.dirname(pred_manifest_path), exist_ok=True)
 
             if from_local_files:
@@ -227,6 +228,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
                     writer = csv.writer(f)
                     writer.writerow(self.PAPI_PRED_CSV_HEADER)   
 
+            self.save_dir = save_dir
             self.pred_manifest_path = pred_manifest_path
 
         self.save_manifest = save_manifest
