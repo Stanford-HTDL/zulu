@@ -205,7 +205,9 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     DEFAULT_MAKE_GIFS = True
 
     LOCAL_PRED_CSV_HEADER = ["Directory", "Positive", "Negative", "Predicted Class"]
-    PAPI_PRED_CSV_HEADER = ["Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Positive", "Negative", "Predicted Class"]
+    PAPI_PRED_CSV_HEADER = [
+        "Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Positive", "Negative", "Predicted Class"
+    ]
 
 
     def __init__(self):
@@ -313,7 +315,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self, geojson_dir_path: str, start: str, end: str, zooms: List[int], 
         false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
         image_parallelizer: Optional[Parallelizer] = Parallelizer(),
-        sample_parallelizer: Optional[Parallelizer] = Parallelizer()
+        parallelizer: Optional[Parallelizer] = Parallelizer()
     ):
         data: Data = Data(self.walk_dir, dir_path=geojson_dir_path)
 
@@ -322,23 +324,26 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
                 tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
                 start=start, end=end, zooms=zooms, false_color_index=false_color_index,
                 truncate=truncate, image_parallelizer=image_parallelizer,
-                parallelizer=sample_parallelizer
+                parallelizer=parallelizer
              ) \
-             >> Transformer(tuple_to_args(self.make_sample), parallelizer=sample_parallelizer)
+             >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
 
         yield from data
 
 
     def _make_samples_from_local_files(
         self, dir_path: str, 
-        sample_parallelizer: Optional[Parallelizer] = Parallelizer(), **kwargs
+        parallelizer: Optional[Parallelizer] = Parallelizer()
     ) -> Generator:
         data = Data(self.walk_dir, dir_path=dir_path)
 
         data >> Transformer(tuple_to_args(self.get_filepaths), as_list=True) \
-             >> Transformer(tuple_to_args(self.read_files_as_pil_image), return_filepaths=True) \
              >> Transformer(
-                tuple_to_args(self.make_sample), parallelizer=sample_parallelizer
+                tuple_to_args(self.read_files_as_pil_image), return_filepaths=True,
+                parallelizer=parallelizer
+             ) \
+             >> Transformer(
+                tuple_to_args(self.make_sample), parallelizer=parallelizer
              )
         yield from data
 
@@ -346,20 +351,20 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     def make_samples(
         self, from_local_files: Optional[bool] = None, 
         dir_path: Optional[str]  = None,
-        sample_parallelizer: Optional[Parallelizer] = Parallelizer(), 
+        parallelizer: Optional[Parallelizer] = Parallelizer(), 
         **kwargs
     ) -> Generator:
         if from_local_files is None:
             from_local_files: bool = self.from_local_files
         if from_local_files:
             yield from self._make_samples_from_local_files(
-                dir_path=dir_path, sample_parallelizer=sample_parallelizer, **kwargs
+                dir_path=dir_path, parallelizer=parallelizer, **kwargs
             )
         else:
             yield from self._make_samples_from_planet_api(
                 geojson_dir_path=dir_path, start=self.start, end=self.end, 
                 zooms=self.zooms, false_color_index=self.fc_index, 
-                sample_parallelizer=sample_parallelizer, **kwargs
+                parallelizer=parallelizer, **kwargs
             )
 
 
@@ -428,4 +433,3 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             self._save_results_from_local_files(input=input, output=output)
         else:
             self._save_results_from_planet_api(input=input, output=output)
-         
