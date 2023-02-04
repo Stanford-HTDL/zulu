@@ -1,0 +1,2 @@
+-m predict --model "ResNetConvLSTM" --model-filepath "experiments/ex/20230203_215813/model_checkpoints/checkpoint_epoch_0001.pth" --channel-axis 2 --data-dir "C:/Projects/yankee/data/nin/" --id "ex" --from-local-files False --start "2022_01" --end "2023_01" --planet-api-key 
+<REDACTED> --save-manifest True
