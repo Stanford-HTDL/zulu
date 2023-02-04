@@ -4,9 +4,11 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 import argparse
 import hashlib
 import logging
+import functools
 import os
 import random
 import time
+from typing import Optional
 
 SCRIPT_PATH = os.path.basename(__file__)
 
@@ -57,6 +59,46 @@ def get_random_string(length=12,
                     SECRET_KEY)).encode('utf-8')
             ).digest())
     return ''.join(random.choice(allowed_chars) for i in range(length))
+
+
+def tuple_to_args(fn, is_method: Optional[bool] = False):
+    @functools.wraps(fn)
+    def tuple_to_args_method_wrapper(self, tup: tuple, *args, **kwargs):
+        if isinstance(tup, tuple):
+            return fn(self, *tup, *args, **kwargs)
+        return fn(self, tup, *args, **kwargs)
+
+
+    @functools.wraps(fn)
+    def tuple_to_args_wrapper(tup: tuple, *args, **kwargs):
+        if isinstance(tup, tuple):
+            return fn(*tup, *args, **kwargs)
+        return fn(tup, *args, **kwargs)        
+
+
+    if is_method:
+        return tuple_to_args_method_wrapper
+    return tuple_to_args_wrapper
+
+
+def async_tuple_to_args(fn, is_method: Optional[bool] = False):
+    @functools.wraps(fn)
+    async def tuple_to_args_method_wrapper(self, tup: tuple, *args, **kwargs):
+        if isinstance(tup, tuple):
+            return await fn(self, *tup, *args, **kwargs)
+        return await fn(self, tup, *args, **kwargs)
+
+
+    @functools.wraps(fn)
+    async def tuple_to_args_wrapper(tup: tuple, *args, **kwargs):
+        if isinstance(tup, tuple):
+            return await fn(*tup, *args, **kwargs)
+        return await fn(tup, *args, **kwargs)
+    
+
+    if is_method:
+        return tuple_to_args_method_wrapper
+    return tuple_to_args_wrapper    
 
 
 def arg_is_true(arg_str: str) -> bool:

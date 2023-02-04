@@ -350,8 +350,8 @@ def main():
                 X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
                 X_num_channels = X.shape[channel_axis]
                 assert X_num_channels == model_num_channels, \
-                    f"Network has been defined with {model_num_channels}" \
-                    f"input channels, but loaded images have {X_num_channels}" \
+                    f"Network has been defined with {model_num_channels} " \
+                    f"input channels, but loaded images have {X_num_channels} " \
                     "channels. Please check that the images are loaded correctly."
                 
                 X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
