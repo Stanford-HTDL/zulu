@@ -15,7 +15,7 @@ import aiohttp
 import torch
 import torchvision.transforms as T
 from light_pipe import AsyncGatherer, Data, Parallelizer, Transformer
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import mercantile
 from script_utils import (arg_is_true, async_tuple_to_args, parse_args,
@@ -80,6 +80,12 @@ class TimeSeriesProcessor(Processor):
     ]   
 
 
+    def _open_geojson(self, geojson_path: str) -> dict:
+        with open(geojson_path) as f:
+            geojson: dict = json.load(f)
+        return geojson        
+
+
     def _get_tiles(self, geojson: dict, zooms: List[str], truncate: bool) -> Generator:  
         geo_bounds = mercantile.geojson_bounds(geojson)
         west = geo_bounds.west
@@ -100,12 +106,13 @@ class TimeSeriesProcessor(Processor):
 
 
     def _make_papi_time_series_requests(
-        self, tiles: List[int], geojson: dict, start: str, end: str, 
+        self, tiles: List[int], geojson_name: str, start: str, end: str, 
         false_color_index: str
     ) -> Generator:
-        try:
-            geojson_name = geojson["name"]
-        except KeyError:
+        # try:
+        #     geojson_name = geojson["name"]
+        # except KeyError:
+        if not geojson_name:
             geojson_name = "geojson"
         for tile in tiles:
             z = tile.z
@@ -122,12 +129,13 @@ class TimeSeriesProcessor(Processor):
 
 
     def _make_planet_monthly_time_series_requests(
-        self, geojson: dict, start: str, end: str, zooms: List[int], 
-        false_color_index: Optional[str] = None, truncate: Optional[bool] = True
+        self, tiles: List[mercantile.Tile], geojson_name: str, start: str, 
+        end: str, false_color_index: Optional[str] = None
     ) -> Generator:
-        tiles = self._get_tiles(geojson, zooms=zooms, truncate=truncate)
+        # tiles = self._get_tiles(geojson, zooms=zooms, truncate=truncate)
+        # tiles: List[mercantile.Tile] = list(set(tiles)) # Remove duplicates
         requests = self._make_papi_time_series_requests(
-            tiles=tiles, geojson=geojson, start=start, end=end, 
+            tiles=tiles, geojson_name=geojson_name, start=start, end=end, 
             false_color_index=false_color_index
         )
         yield from requests 
@@ -147,28 +155,28 @@ class TimeSeriesProcessor(Processor):
 
 
     def _get_pil_images_from_response(
-        self, responses: List[bytes], *args
+        self, responses: List[bytes], z: int, x: int, y: int, geojson_name: str
     ) -> List[Image.Image]:
         images: list = list()
         for response in responses:
             img_bs = io.BytesIO(response)
             img = Image.open(img_bs).convert('RGB')
             images.append(img)
-        return images, args   
+        return images, z, x, y, geojson_name
 
 
     def get_planet_monthly_time_series_as_PIL_Images(
-        self, geojson_path: str, start: str, end: str, zooms: List[int],
-        false_color_index: Optional[str] = None, truncate: Optional[bool] = True,
+        self, tiles: List[mercantile.Tile], start: str, end: str,
+        geojson_name: Optional[str] = "xyz", false_color_index: Optional[str] = None, 
         image_parallelizer: Optional[Parallelizer] = Parallelizer()
     ) -> Generator:
-        with open(geojson_path) as f:
-            geojson: dict = json.load(f)
+        # with open(geojson_path) as f:
+        #     geojson: dict = json.load(f)
 
         data: Data = Data(
-            self._make_planet_monthly_time_series_requests, geojson=geojson,
-            start=start, end=end, zooms=zooms, false_color_index=false_color_index,
-            truncate=truncate
+            self._make_planet_monthly_time_series_requests, tiles=tiles,
+            geojson_name=geojson_name, start=start, end=end, 
+            false_color_index=false_color_index
         )
         data >> Transformer(
             async_tuple_to_args(self._post_monthly_mosaic_request), parallelizer=AsyncGatherer()
@@ -201,6 +209,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     DEFAULT_END = "2023_01"
     DEFAULT_ZOOMS = [15]
     DEFAULT_DURATION = 250.0
+    DEFAULT_SAVE_IMAGES = True
     DEFAULT_EMBED_DATE = True
     DEFAULT_MAKE_GIFS = True
 
@@ -239,8 +248,10 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self.zooms = args["zooms"]
         self.duration = args["duration"]
         self.fc_index = args["fc_index"]
-        self.embed_date = args["embed_date"]
-        self.make_gifs = args["make_gifs"]        
+
+        self.embed_date = arg_is_true(args["embed_date"])
+        self.save_images = arg_is_true(args["save_images"])
+        self.make_gifs = arg_is_true(args["make_gifs"]        )
 
 
     def parse_args(self):
@@ -284,6 +295,10 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             default=None
         )
         parser.add_argument(
+            "--save-images",
+            default=self.DEFAULT_SAVE_IMAGES
+        )
+        parser.add_argument(
             "--embed-date",
             default=self.DEFAULT_EMBED_DATE,
         )
@@ -292,7 +307,40 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             default=self.DEFAULT_MAKE_GIFS,
         )        
         args = parse_args(parser=parser)
-        return args 
+        return args
+
+
+    def _save_pil_images(
+        self, images: List[Image.Image], z: int, x: int, y: int, target_name: str,
+        start, end, duration, save_dir: str, make_gifs: Optional[bool] = False,
+        save_images: Optional[bool] = True, embed_date = True, 
+        timelapse_format: Optional[str] = "gif", image_format: Optional[str] = "png",
+        loop: Optional[int] = 0, tile_dir: Optional[str] = "xyz_tiles"
+    ) -> Generator:
+        dates = self._get_mosaic_time_str_from_start_end(start, end)
+        if embed_date:
+            for date, image in list(zip(dates, images)):
+                year, month = date.split("_")
+                draw = ImageDraw.Draw(image)
+                draw.text((0, 0), f"{year} {month} {z} {x} {y}",(255,255,255))                   
+
+        if make_gifs:
+            gif_filename = f"{start}_{end}/{z}/{target_name}/{z}_{x}_{y}/{start}_{end}.{timelapse_format}"
+            gif_filepath = os.path.join(save_dir, tile_dir, f"{timelapse_format}s", gif_filename).replace("\\", "/")
+            os.makedirs(os.path.dirname(gif_filepath), exist_ok=True)
+            imgs_iter = iter(images)
+            first_img = next(imgs_iter)
+            first_img.save(fp=gif_filepath, format='GIF', append_images=imgs_iter,
+                    save_all=True, duration=duration, loop=loop, interlace=False,
+                    include_color_table=True)                     
+
+        if save_images:
+            for date, image in list(zip(dates, images)):
+                image_filename = f"{start}_{end}/{z}/{target_name}/{z}_{x}_{y}/{date}.{image_format}"
+                image_filepath = os.path.join(save_dir, tile_dir, f"{image_format}s", image_filename).replace("\\", "/")
+                os.makedirs(os.path.dirname(image_filepath), exist_ok=True)
+                image.save(fp=image_filepath, format=image_format)
+        return images, z, x, y, target_name
 
 
     def make_sample(self, images: List[Image.Image], *args) -> dict:
@@ -313,24 +361,65 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         }         
 
 
+    # def _make_samples_from_planet_api(
+    #     self, geojson_dir_path: str, start: str, end: str, zooms: List[int], 
+    #     false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
+    #     image_parallelizer: Optional[Parallelizer] = Parallelizer(),
+    #     parallelizer: Optional[Parallelizer] = Parallelizer()
+    # ):
+    #     data: Data = Data(self.walk_dir, dir_path=geojson_dir_path)
+
+    #     data >> Transformer(tuple_to_args(self.get_filepaths)) \
+    #          >> Transformer(
+    #             tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
+    #             start=start, end=end, zooms=zooms, false_color_index=false_color_index,
+    #             truncate=truncate, image_parallelizer=image_parallelizer,
+    #             parallelizer=parallelizer
+    #          ) \
+    #          >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
+
+    #     yield from data
+
+
     def _make_samples_from_planet_api(
         self, geojson_dir_path: str, start: str, end: str, zooms: List[int], 
         false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
         image_parallelizer: Optional[Parallelizer] = Parallelizer(),
         parallelizer: Optional[Parallelizer] = Parallelizer()
     ):
+
+        # def yield_tiles(tiles: List[mercantile.Tile]) -> Generator:
+        #     yield tiles
+
+
         data: Data = Data(self.walk_dir, dir_path=geojson_dir_path)
 
-        data >> Transformer(tuple_to_args(self.get_filepaths)) \
-             >> Transformer(
-                tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
-                start=start, end=end, zooms=zooms, false_color_index=false_color_index,
-                truncate=truncate, image_parallelizer=image_parallelizer,
-                parallelizer=parallelizer
-             ) \
-             >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
+        data >> Transformer(tuple_to_args(self.get_filepaths), as_list=False) \
+             >> Transformer(self._open_geojson) \
+             >> Transformer(tuple_to_args(self._get_tiles), zooms=zooms, truncate=truncate)
 
-        yield from data
+        tiles: List[mercantile.Tile] = data(block=True)
+        tiles = list(set(tiles)) # Remove duplicates
+
+        data = Data([tiles])
+
+        data >> Transformer(
+                tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
+                start=start, end=end, false_color_index=false_color_index, 
+                image_parallelizer=image_parallelizer, parallelizer=parallelizer
+             )
+
+        if self.save_images or self.make_gifs:
+            data >> Transformer(
+                tuple_to_args(self._save_pil_images), save_dir=self.save_dir,
+                start=start, end=end, duration=self.duration, 
+                make_gifs=self.make_gifs, save_images=self.save_images,
+                embed_date=self.embed_date, 
+            )
+
+        data >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
+
+        yield from data    
 
 
     def _make_samples_from_local_files(
@@ -394,10 +483,10 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
 
 
     def _save_results_from_planet_api(self, input: dict, output: torch.Tensor) -> None:
-        z: int = input["args"][0][0]
-        x: int = input["args"][0][1]
-        y: int = input["args"][0][2]
-        geojson_name: str = input["args"][0][3]
+        z: int = input["args"][0]
+        x: int = input["args"][1]
+        y: int = input["args"][2]
+        geojson_name: str = input["args"][3]
 
         tile: mercantile.Tile = mercantile.Tile(x=x, y=y, z=z)
         ul: mercantile.LngLat = mercantile.ul(tile)

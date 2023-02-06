@@ -119,7 +119,7 @@ def main():
     # logging.info(f'Model loaded from {model_filepath}')
 
     pred_processor_name: str = args["pred_processor"]
-    pred_processor: Processor = PRED_PROCESSORS[pred_processor_name](save_dir=log_dir)
+    pred_processor: Processor = PRED_PROCESSORS[pred_processor_name](save_dir=experiment_dir)
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
