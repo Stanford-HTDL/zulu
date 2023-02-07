@@ -384,6 +384,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     def _make_samples_from_planet_api(
         self, geojson_dir_path: str, start: str, end: str, zooms: List[int], 
         false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
+        num_tiles_per_sublist: Optional[int] = 128,
         image_parallelizer: Optional[Parallelizer] = Parallelizer(),
         parallelizer: Optional[Parallelizer] = Parallelizer()
     ):
@@ -400,8 +401,14 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
 
         tiles: List[mercantile.Tile] = data(block=True)
         tiles = list(set(tiles)) # Remove duplicates
+        
+        # Chunk tiles to prevent order bottlenecks
+        tiles = [
+            tiles[i:i + num_tiles_per_sublist] for i in range(0, len(tiles), num_tiles_per_sublist)
+        ]
+        # tiles = [tiles]
 
-        data = Data([tiles])
+        data = Data(tiles)
 
         data >> Transformer(
                 tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
@@ -414,7 +421,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
                 tuple_to_args(self._save_pil_images), save_dir=self.save_dir,
                 start=start, end=end, duration=self.duration, 
                 make_gifs=self.make_gifs, save_images=self.save_images,
-                embed_date=self.embed_date, 
+                embed_date=self.embed_date, parallelizer=parallelizer
             )
 
         data >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
