@@ -360,7 +360,8 @@ def main():
                 with torch.autocast(
                     device.type if device.type != "mps" else "cpu", enabled=use_mp 
                 ):
-                    Y_hat = model(X)
+                    with torch.no_grad():
+                        Y_hat = model(X)
                     loss = criterion(Y_hat, Y)
                 validation_loss += loss.item()
 
