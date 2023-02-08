@@ -245,7 +245,7 @@ def main():
    
         train_set, validation_set = torch.utils.data.random_split(
                 dataset, [num_train, num_validation], 
-                generator=torch.Generator().manual_seed(DEFAULT_SEED)
+                generator=torch.Generator().manual_seed(seed=seed)
         )
     else:
         train_set = dataset
@@ -375,10 +375,10 @@ def main():
                         f"""
                         Validation batch:
 
-                        Target: 
+                        Target:
                             {Y.unsqueeze(-1)}
 
-                        Predictions: 
+                        Predictions:
                             {Y_hat}
                         """
                     )
