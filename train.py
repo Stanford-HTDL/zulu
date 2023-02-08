@@ -9,7 +9,7 @@ import time
 import torch
 
 from datasets import ConvLSTMCDataset, EurosatDataset
-from models import ResNetConvLSTM, SpectrumNet, SqueezeNet
+from models import ResNetConvLSTM, ResNetOneDConv, SpectrumNet, SqueezeNet
 from optimizers import SGD
 from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
 
@@ -48,7 +48,8 @@ if torch.cuda.is_available():
 MODELS = {
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
-    ResNetConvLSTM.__name__: ResNetConvLSTM
+    ResNetConvLSTM.__name__: ResNetConvLSTM,
+    ResNetOneDConv.__name__: ResNetOneDConv
 }
 
 DATASETS = {

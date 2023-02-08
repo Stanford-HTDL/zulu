@@ -2,6 +2,7 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 
 
 import argparse
+import math
 
 import torch
 import torch.nn as nn
@@ -291,11 +292,145 @@ class ResNetConvLSTM(nn.Module):
         for t in range(x_3d.size(1)):
             with torch.no_grad():
                 x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])
-                x = x.view(x.size(0), -1) # Flatten output of ResNet            
+                x = x.view(x.size(0), -1) # Flatten output of ResNet
             out, hidden = self.lstm(x.unsqueeze(0), hidden)         
 
         x = self.fc1(out[-1, :, :])
         x = F.relu(x)
         x = self.dropout(x)
         x = self.fc2(x)
-        return x                    
+        return x
+
+
+class ResNetOneDConv(nn.Module):
+    __name__ = "ResNetOneDConv"
+
+    DEFAULT_NUM_CHANNLES: int = 3
+    DEFAULT_NUM_CLASSES: int = 2
+    DEFAULT_DROPOUT: float = 0.0
+    DEFAULT_FREEZE_BACKBONE_PARAMS: bool = True
+    DEFAULT_BACKBONE_NAME: str = "resnet152"
+    DEFAULT_KERNEL_SIZE: int = 3
+    DEFAULT_STRIDE: int = 1
+    DEFAULT_CONV_OUT_CHANNELS: int = 256
+    DEFAULT_FC1_OUT: int = 128
+
+
+    def __init__(self):
+        super().__init__()
+        args = self.parse_args()
+        num_channels: int = args["num_channels"]
+        num_classes: int = args["num_classes"]
+        dropout: float = args["dropout"]        
+        freeze_backbone_params: bool = arg_is_true(args["freeze_backbone_params"])
+        backbone_name: str = args["backbone"]
+        conv_out_channels: int = args["conv_out_channels"]
+        kernel_size: int = args["kernel_size"]
+        stride: int = args["stride"]
+        sequence_length: int = args["sequence_length"]
+        fc1_out: int = args["fc1_out"]
+
+        assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."
+
+        self.args = args 
+
+        resnet = BACKBONES[backbone_name](pretrained=True)
+        resnet_fc_in_features: int  = resnet.fc.in_features
+        resnet.fc = nn.Sequential()
+        self.resnet = resnet
+
+        if freeze_backbone_params:
+            self.resnet.requires_grad_(False)
+
+        self.conv1d = nn.Conv1d(
+            in_channels=resnet_fc_in_features, out_channels=conv_out_channels,
+            kernel_size=kernel_size, stride=stride
+        )
+
+        max_pool_kernel_size: int = math.floor(1 + (sequence_length - kernel_size) / stride)
+
+        self.maxpool = nn.MaxPool1d(kernel_size=max_pool_kernel_size)
+     
+        self.dropout = nn.Dropout(p=dropout)
+
+        self.fc1 = nn.Linear(conv_out_channels, fc1_out)
+        self.fc2 = nn.Linear(fc1_out, num_classes)
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--num-channels",
+            default=self.DEFAULT_NUM_CHANNLES,
+            type=int
+        )
+        parser.add_argument(
+            "--num-classes",
+            default=self.DEFAULT_NUM_CLASSES,
+            type=int
+        )
+        parser.add_argument(
+            "--dropout",
+            default=self.DEFAULT_DROPOUT,
+            type=float
+        )  
+        parser.add_argument(
+            "--freeze-backbone-params",
+            default=self.DEFAULT_FREEZE_BACKBONE_PARAMS
+        )
+        parser.add_argument(
+            "--backbone",
+            default=self.DEFAULT_BACKBONE_NAME
+        )
+        parser.add_argument(
+            "--conv-out-channels",
+            default=self.DEFAULT_CONV_OUT_CHANNELS,
+            type=int
+        )
+        parser.add_argument(
+            "--kernel-size",
+            default=self.DEFAULT_KERNEL_SIZE,
+            type=int
+        )
+        parser.add_argument(
+            "--fc1-out",
+            default=self.DEFAULT_FC1_OUT,
+            type=int
+        )
+        parser.add_argument(
+            "--stride",
+            default=self.DEFAULT_STRIDE,
+            type=int
+        )
+        parser.add_argument(
+            "--sequence-length",
+            required=True,
+            type=int
+        )
+        args = parse_args(parser=parser)
+        return args
+
+       
+    def forward(self, x_3d):
+        features = list()
+        for t in range(x_3d.size(1)):
+            with torch.no_grad():
+                x: torch.Tensor = self.resnet(x_3d[:, t, :, :, :])
+                x = x.unsqueeze(-1)
+                features.append(x)
+
+        x = torch.concat(features, dim=-1)
+
+        x = self.conv1d(x)
+        x = self.maxpool(x)
+        x = x.squeeze(-1)
+
+        x = F.relu(x)
+        x = self.dropout(x)
+        x = self.fc1(x)
+
+        x = F.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+           
+        return x           
