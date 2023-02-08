@@ -151,7 +151,7 @@ class ConvLSTMCDataset(Dataset):
 
     DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
     DEFAULT_USE_DATA_AUG: bool = True
-    DEFAULT_VERBOSE: bool = False
+    # DEFAULT_VERBOSE: bool = False
 
 
     def __init__(self):
@@ -162,42 +162,42 @@ class ConvLSTMCDataset(Dataset):
         self.args = args            
 
         dir_path = data_dict["dir_path"]
-        verbose: bool = arg_is_true(args["verbose"])
-        if verbose:
-            print(f"Loading samples from {dir_path}")
-            num_pos: int = 0
-            num_neg: int = 0
+        # verbose: bool = arg_is_true(args["verbose"])
+        # if verbose:
+        #     print(f"Loading samples from {dir_path}")
+        #     num_pos: int = 0
+        #     num_neg: int = 0
         samples = list()
         for dirpath, dirnames, filenames in os.walk(dir_path):
             if not dirnames:
                 for key, value in data_dict["categories"].items():
                     if key in dirpath:
-                        if verbose and value:
-                            num_pos += 1
-                        elif verbose:
-                            num_neg += 1
+                        # if verbose and value:
+                        #     num_pos += 1
+                        # elif verbose:
+                        #     num_neg += 1
                         sample_dict = {
                             "dirpath": dirpath,
                             "filenames": filenames,
                             "label": value
                         }
-                        if verbose:
-                            print(
-                                f"""
-                                   Sample:
-                                Directory: {dirpath}
-                                Label: {value}
-                                """
-                            )
+                        # if verbose:
+                        #     print(
+                        #         f"""
+                        #            Sample:
+                        #         Directory: {dirpath}
+                        #         Label: {value}
+                        #         """
+                        #     )
                         samples.append(sample_dict)
-        if verbose:
-            print(
-                f"""
-                Done loading samples.
-                Number of positive samples: {num_pos}
-                Number of negative samples: {num_neg}
-                """
-            )
+        # if verbose:
+        #     print(
+        #         f"""
+        #         Done loading samples.
+        #         Number of positive samples: {num_pos}
+        #         Number of negative samples: {num_neg}
+        #         """
+        #     )
 
         self.transforms = T.Compose([
             T.Resize((224,224)),
@@ -212,7 +212,7 @@ class ConvLSTMCDataset(Dataset):
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
-        self.verbose = verbose
+        # self.verbose = verbose
 
 
     def parse_args(self):
@@ -225,10 +225,10 @@ class ConvLSTMCDataset(Dataset):
             "--use-data-aug",
             default=self.DEFAULT_USE_DATA_AUG
         )
-        parser.add_argument(
-            "--verbose",
-            default=self.DEFAULT_VERBOSE
-        )
+        # parser.add_argument(
+        #     "--verbose",
+        #     default=self.DEFAULT_VERBOSE
+        # )
         args = parse_args(parser=parser)
         return args              
 
