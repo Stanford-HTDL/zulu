@@ -10,7 +10,8 @@ import torch
 
 from datasets import ConvLSTMCDataset, EurosatDataset
 from models import ResNetConvLSTM, ResNetOneDConv, SpectrumNet, SqueezeNet
-from optimizers import SGD
+from optimizers import SGD, Adam
+from schedulers import StepLR, ReduceLROnPlateau
 from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
@@ -18,9 +19,9 @@ SCRIPT_PATH = os.path.basename(__file__)
 DEFAULT_BATCH_SIZE = 64
 DEFAULT_NUM_EPOCHS = 64
 DEFAULT_OPTIMIZER = SGD.__name__
-DEFAULT_SCHEDULER = "StepLR"
-DEFAULT_STEP_SIZE = 10
-DEFAULT_SCHEDULER_GAMMA = 0.75
+DEFAULT_SCHEDULER = StepLR.__name__
+# DEFAULT_STEP_SIZE = 10
+# DEFAULT_SCHEDULER_GAMMA = 0.75
 DEFAULT_MODEL_NAME = SqueezeNet.__name__
 DEFAULT_DATASET_NAME = EurosatDataset.__name__
 DEFAULT_VALIDATION_PERCENT = 0.15
@@ -62,10 +63,13 @@ CRITERIA = {
 }
 
 OPTIMIZERS = {
-    SGD.__name__: SGD
+    SGD.__name__: SGD,
+    Adam.__name__: Adam
+
 }
 SCHEDULERS = {
-    "StepLR": torch.optim.lr_scheduler.StepLR
+    StepLR.__name__: StepLR,
+    ReduceLROnPlateau.__name__: ReduceLROnPlateau
 }
 
 
@@ -91,7 +95,6 @@ def parse_args():
     parser.add_argument(
         "--shuffle",
         default=DEFAULT_SHUFFLE,
-        type=bool
     )
     parser.add_argument(
         "--criterion",
@@ -116,24 +119,13 @@ def parse_args():
         default=DEFAULT_SCHEDULER
     )
     parser.add_argument(
-        "--step-size",
-        default=DEFAULT_STEP_SIZE,
-        type=int
-    )
-    parser.add_argument(
-        "--scheduler-gamma",
-        default=DEFAULT_SCHEDULER_GAMMA,
-        type=float
-    )    
-    parser.add_argument(
         "--num-workers",
         default=DEFAULT_NUM_WORKERS,
         type=int
     )  
     parser.add_argument(
         "--pin-memory",
-        default=DEFAULT_PIN_MEMORY,
-        type=bool
+        default=DEFAULT_PIN_MEMORY
     )       
     parser.add_argument(
         '--device',
@@ -141,13 +133,11 @@ def parse_args():
     )
     parser.add_argument(
         "--mixed-precision",
-        default=DEFAULT_MIXED_PRECISION,
-        type=bool
+        default=DEFAULT_MIXED_PRECISION
     )
     parser.add_argument(
         "--save-model",
-        default=DEFAULT_SAVE_MODEL,
-        type=bool
+        default=DEFAULT_SAVE_MODEL
     )
     parser.add_argument(
         "--save-every",
@@ -248,9 +238,9 @@ def main():
         num_train: int = len(dataset)
         num_validation: int = 0
 
-    shuffle = args["shuffle"]
+    shuffle = arg_is_true(args["shuffle"])
     num_workers = args["num_workers"]
-    pin_memory = args["pin_memory"]
+    pin_memory = arg_is_true(args["pin_memory"])
     train_loader = torch.utils.data.DataLoader(
         train_set, shuffle=shuffle, batch_size=batch_size, 
         num_workers=num_workers, pin_memory=pin_memory,
@@ -269,18 +259,19 @@ def main():
     use_scheduler: bool = not arg_is_false(scheduler_name)
     if use_scheduler:
         Scheduler = SCHEDULERS[scheduler_name]
-        if scheduler_name == "StepLR":
-            step_size = args["step_size"]
-            scheduler_gamma = args["scheduler_gamma"]
-            scheduler = Scheduler(
-                optimizer, step_size=step_size, gamma=scheduler_gamma
-            )
+        scheduler = Scheduler(optimizer=optimizer)
+        # if scheduler_name == "StepLR":
+        #     step_size = args["step_size"]
+        #     scheduler_gamma = args["scheduler_gamma"]
+        #     scheduler = Scheduler(
+        #         optimizer, step_size=step_size, gamma=scheduler_gamma
+        #     )
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
-        **args, **model.args, **dataset.args, **optimizer.args,
-        experiment_id = experiment_id, time = time_str
+        **args, **model.args, **dataset.args, **optimizer.args, **scheduler.args,
+        experiment_id=experiment_id, time=time_str
     )
 
     logging.info(f'Using device {device}') 
@@ -296,12 +287,12 @@ def main():
         """
     )                    
 
-    use_mp = args["mixed_precision"]
+    use_mp = arg_is_true(args["mixed_precision"])
 
     criterion_name = args["criterion"]
     criterion = CRITERIA[criterion_name]().to(device=device)
 
-    save_model = args["save_model"]
+    save_model = arg_is_true(args["save_model"])
     save_every = args["save_every"]
 
     channel_axis = args["channel_axis"]
@@ -333,8 +324,8 @@ def main():
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
-        if use_scheduler:
-            scheduler.step()
+        # if use_scheduler:
+        #     scheduler.step()
 
         logging.info(
             f"""
@@ -364,6 +355,12 @@ def main():
                         Y_hat = model(X)
                     loss = criterion(Y_hat, Y)
                 validation_loss += loss.item()
+
+        if use_scheduler:
+            if scheduler.requires_metrics:
+                scheduler.step(validation_loss)
+            else:
+                scheduler.step()
 
         logging.info(
             f"""
