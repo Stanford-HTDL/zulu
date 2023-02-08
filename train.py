@@ -41,9 +41,6 @@ DEFAULT_SAVE_LOSSES = True
 DEFAULT_VALIDATION = True
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
-torch.manual_seed(DEFAULT_SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(DEFAULT_SEED)
 
 # REMEMBER to update as new models are added!
 MODELS = {
@@ -75,6 +72,11 @@ SCHEDULERS = {
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--seed",
+        default=DEFAULT_SEED,
+        type=int
+    )
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL_NAME
@@ -170,6 +172,12 @@ def parse_args():
 
 def main():
     args = vars(parse_args())
+
+    seed = args["seed"]
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+
     if not args["id"]:
         experiment_id = get_random_string()
     else:
