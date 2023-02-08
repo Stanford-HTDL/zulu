@@ -374,10 +374,12 @@ def main():
                     logging.info(
                         f"""
                         Validation batch:
-                        
-                        Target: {Y}
 
-                        Predictions: {Y_hat}
+                        Target: 
+                            {Y.unsqueeze(-1)}
+
+                        Predictions: 
+                            {Y_hat}
                         """
                     )
 
