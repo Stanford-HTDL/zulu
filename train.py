@@ -245,7 +245,7 @@ def main():
    
         train_set, validation_set = torch.utils.data.random_split(
                 dataset, [num_train, num_validation], 
-                generator=torch.Generator().manual_seed(seed=seed)
+                generator=torch.Generator().manual_seed(seed)
         )
     else:
         train_set = dataset
