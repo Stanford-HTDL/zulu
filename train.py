@@ -39,6 +39,7 @@ DEFAULT_EXPERIMENT_DIR: str = "experiments/"
 DEFAULT_MODEL_FILEPATH = None
 DEFAULT_SAVE_LOSSES = True
 DEFAULT_VALIDATION = True
+DEFAULT_PRINT_VAL_PREDS = False
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
 
@@ -166,6 +167,10 @@ def parse_args():
         "--validation",
         default=DEFAULT_VALIDATION
     )
+    parser.add_argument(
+        "--print-val-preds",
+        default=DEFAULT_PRINT_VAL_PREDS
+    )
     p_args, _ = parser.parse_known_args()
     return p_args    
 
@@ -231,6 +236,7 @@ def main():
     dataset = DATASETS[dataset_name]()
 
     validation = arg_is_true(args["validation"])
+    print_val_preds: bool = arg_is_true(args["print_val_preds"])
 
     if validation:
         val_percent = args["val_percent"]
@@ -363,6 +369,17 @@ def main():
                         Y_hat = model(X)
                     loss = criterion(Y_hat, Y)
                 validation_loss += loss.item()
+
+                if print_val_preds:
+                    logging.info(
+                        f"""
+                        Validation batch:
+                        
+                        Target: {Y}
+
+                        Predictions: {Y_hat}
+                        """
+                    )
 
         if use_scheduler:
             if scheduler.requires_metrics:
