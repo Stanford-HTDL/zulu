@@ -404,8 +404,8 @@ class ResNetOneDConv(nn.Module):
         )
         parser.add_argument(
             "--sequence-length",
-            required=True,
-            type=int
+            type=int,
+            required=True
         )
         args = parse_args(parser=parser)
         return args

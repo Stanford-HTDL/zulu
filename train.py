@@ -232,13 +232,13 @@ def main():
     dataset_name = args["dataset"]
     dataset = DATASETS[dataset_name]()
 
-    val_percent = args["val_percent"]
-    num_validation = int(len(dataset) * val_percent)
-    num_train = len(dataset) - num_validation  
-
     validation = arg_is_true(args["validation"])
 
     if validation:
+        val_percent = args["val_percent"]
+        num_validation = int(len(dataset) * val_percent)
+        num_train = len(dataset) - num_validation
+   
         train_set, validation_set = torch.utils.data.random_split(
                 dataset, [num_train, num_validation], 
                 generator=torch.Generator().manual_seed(DEFAULT_SEED)

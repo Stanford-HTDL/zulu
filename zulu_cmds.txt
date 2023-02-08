@@ -2,3 +2,5 @@
 <REDACTED> --save-manifest True
 
 python -m predict --model "ResNetConvLSTM" --model-filepath "/home/rcorrero/experiments/sits-4-resnet-convlstm-22-resnet152-5e-2/20230207_072502/model_checkpoints/checkpoint_epoch_1024.pth" --channel-axis 2 --data-dir "../targets/2111607/" --id "2111607-sits-4-resnet-convlstm-22-resnet152-5e-2-preds" --from-local-files False --start "2022_01" --end "2023_01" --planet-api-key <REDACTED> --save-manifest True --save-images False --make-gifs False --embed-date False --lstm-hidden-size 1024 --fc1-out 512 --lstm-layers 1
+
+python -m train --model "ResNetOneDConv" --dataset "ConvLSTMCDataset" --validation False --batch-size 2048 --num-epochs 256 --save-every 16 --channel-axis 2 --experiments-dir "../experiments/" --id "sits-5-resnet-152-one-d-conv-25" --backbone "resnet152" --kernel-size 3 --stride 1 --conv-out-channels 256 --fc1-out 128 --sequence-length 12 --data-manifest "../sits_5/sits_manifest.json" --lr 0.05 --use-data-aug True --dropout 0.5
