@@ -193,7 +193,7 @@ class ConvLSTMCDataset(Dataset):
                         #     )
                         samples.append(sample_dict)
         num_samples = num_neg + num_pos
-        self.class_weights = [num_neg / num_samples, num_pos / num_samples]
+        self.class_weights = [num_pos / num_samples, num_neg / num_samples]
 
         # if verbose:
         #     print(
