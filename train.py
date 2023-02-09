@@ -266,7 +266,7 @@ def main():
     )
     if validation:
         validation__loader = torch.utils.data.DataLoader(
-            validation_set, shuffle=shuffle, batch_size=batch_size, 
+            validation_set, shuffle=False, batch_size=batch_size, 
             num_workers=num_workers, pin_memory=pin_memory
         )    
 
