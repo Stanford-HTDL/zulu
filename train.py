@@ -364,8 +364,6 @@ def main():
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
-        # if use_scheduler:
-        #     scheduler.step()
 
         logging.info(
             f"""

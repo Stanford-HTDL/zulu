@@ -82,7 +82,7 @@ class ReduceLROnPlateau(torch.optim.lr_scheduler.ReduceLROnPlateau):
     def parse_args(self):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            "--mode",
+            "--plateau-mode",
             default=self.DEFAULT_MODE
         )
         parser.add_argument(
