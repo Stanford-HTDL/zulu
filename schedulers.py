@@ -62,7 +62,7 @@ class ReduceLROnPlateau(torch.optim.lr_scheduler.ReduceLROnPlateau):
 
     def __init__(self, optimizer: torch.optim.Optimizer):
         args = self.parse_args()
-        mode: str = args["mode"]
+        mode: str = args["plateau_mode"]
         factor: float = args["factor"]
         patience: float = args["patience"]
         threshold: float = args["threshold"]
