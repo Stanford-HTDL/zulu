@@ -22,8 +22,7 @@ DEFAULT_NUM_EPOCHS = 64
 DEFAULT_OPTIMIZER = SGD.__name__
 DEFAULT_SCHEDULER = StepLR.__name__
 DEFAULT_SCHEDULER_METRIC = "validation_loss"
-# DEFAULT_STEP_SIZE = 10
-# DEFAULT_SCHEDULER_GAMMA = 0.75
+DEFAULT_F_BETA = 1
 DEFAULT_MODEL_NAME = SqueezeNet.__name__
 DEFAULT_DATASET_NAME = EurosatDataset.__name__
 DEFAULT_VALIDATION_PERCENT = 0.15
@@ -132,6 +131,11 @@ def parse_args():
     parser.add_argument(
         "--scheduler-metric",
         default=DEFAULT_SCHEDULER_METRIC
+    )
+    parser.add_argument(
+        "--F-beta",
+        default=DEFAULT_F_BETA,
+        type=float
     )
     parser.add_argument(
         "--num-workers",
@@ -291,13 +295,8 @@ def main():
     if use_scheduler:
         Scheduler = SCHEDULERS[scheduler_name]
         scheduler = Scheduler(optimizer=optimizer)
-        # if scheduler_name == "StepLR":
-        #     step_size = args["step_size"]
-        #     scheduler_gamma = args["scheduler_gamma"]
-        #     scheduler = Scheduler(
-        #         optimizer, step_size=step_size, gamma=scheduler_gamma
-        #     )
     scheduler_metric: str = args["scheduler_metric"]
+    F_beta: float = args["F_beta"]
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
@@ -401,7 +400,7 @@ def main():
                 Y_hat = Y_hat.cpu()
 
 
-                metrics: dict = calc_metrics(Y, Y_hat)
+                metrics: dict = calc_metrics(Y, Y_hat, beta=F_beta)
                 metrics["validation_loss"] = validation_loss
                 if print_metrics:
                     for key, value in metrics.items():

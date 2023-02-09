@@ -1,23 +1,23 @@
 __author__ = "Richard Correro (richard@richardcorrero.com)"
 
 
+from collections import namedtuple
 from typing import Dict, Optional
 
 import torch
-from collections import namedtuple
 
 
-# class Metrics(
-#     namedtuple(
-#         "Metrics", ["tp", "fp", "tn", "fn", "precision", "recall", "accuracy", "F"]
-#         )
-#     ):
-#     def __new__(cls, tp, fp, tn, fn, precision, recall, accuracy, F):
-#         return tuple.__new__(cls, [tp, fp, tn, fn, precision, recall, accuracy, F])
+class Metrics(
+    namedtuple(
+        "Metrics", ["tp", "fp", "tn", "fn", "precision", "recall", "accuracy", "F"]
+        )
+    ):
+    def __new__(cls, tp, fp, tn, fn, precision, recall, accuracy, F):
+        return tuple.__new__(cls, [tp, fp, tn, fn, precision, recall, accuracy, F])
 
 
 def calc_metrics(
-    Y: torch.Tensor, Y_hat: torch.Tensor, beta: Optional[int] = 1,
+    Y: torch.Tensor, Y_hat: torch.Tensor, beta: Optional[float] = 1,
     eps: Optional[float] = 1e-16
 ) -> Dict:
     assert Y.ndim == 1 and Y_hat.ndim == 2, \
@@ -46,7 +46,7 @@ def calc_metrics(
         "precision": precision,
         "recall": recall,
         "accuracy": accuracy,
-        f"F_{beta}": F_beta
+        f"F": F_beta
     }
     # metrics = Metrics(tp, fp, tn, fn, precision, recall, accuracy, F_beta)
     return metrics
