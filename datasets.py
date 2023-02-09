@@ -42,6 +42,8 @@ class EurosatDataset(Dataset):
         self.bands = bands
         self.use_data_aug = arg_is_true(args["use_data_aug"])
 
+        self.class_weights = [1.0, 1.0]
+
 
     def parse_args(self):
         parser = argparse.ArgumentParser()
@@ -165,17 +167,17 @@ class ConvLSTMCDataset(Dataset):
         # verbose: bool = arg_is_true(args["verbose"])
         # if verbose:
         #     print(f"Loading samples from {dir_path}")
-        #     num_pos: int = 0
-        #     num_neg: int = 0
+        num_pos: int = 0
+        num_neg: int = 0
         samples = list()
         for dirpath, dirnames, filenames in os.walk(dir_path):
             if not dirnames:
                 for key, value in data_dict["categories"].items():
                     if key in dirpath:
-                        # if verbose and value:
-                        #     num_pos += 1
-                        # elif verbose:
-                        #     num_neg += 1
+                        if value:
+                            num_pos += 1
+                        else:
+                            num_neg += 1
                         sample_dict = {
                             "dirpath": dirpath,
                             "filenames": filenames,
@@ -190,6 +192,9 @@ class ConvLSTMCDataset(Dataset):
                         #         """
                         #     )
                         samples.append(sample_dict)
+        num_samples = num_neg + num_pos
+        self.class_weights = [num_neg / num_samples, num_pos / num_samples]
+
         # if verbose:
         #     print(
         #         f"""

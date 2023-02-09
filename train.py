@@ -27,6 +27,7 @@ DEFAULT_DATASET_NAME = EurosatDataset.__name__
 DEFAULT_VALIDATION_PERCENT = 0.15
 DEFAULT_SHUFFLE = True
 DEFAULT_CRITERION_NAME = "CrossEntropyLoss"
+DEFAULT_USE_CLASS_WEIGHTS = False
 DEFAULT_EXPERIMENT_DIR = "experiments/"
 DEFAULT_NUM_WORKERS = os.cpu_count()
 DEFAULT_PIN_MEMORY = True
@@ -102,6 +103,10 @@ def parse_args():
     parser.add_argument(
         "--criterion",
         default=DEFAULT_CRITERION_NAME,
+    )
+    parser.add_argument(
+        "--use-class-weights",
+        default=DEFAULT_USE_CLASS_WEIGHTS
     )
     parser.add_argument(
         "--batch-size",
@@ -303,8 +308,15 @@ def main():
 
     use_mp = arg_is_true(args["mixed_precision"])
 
+    use_class_weights = arg_is_true(args["use_class_weights"])
+    if use_class_weights:
+        weight = dataset.class_weights
+        weight: torch.Tensor = torch.tensor(weight, dtype=torch.float)
+    else: weight = None
+
+
     criterion_name = args["criterion"]
-    criterion = CRITERIA[criterion_name]().to(device=device)
+    criterion = CRITERIA[criterion_name](weight=weight).to(device=device)
 
     save_model = arg_is_true(args["save_model"])
     save_every = args["save_every"]
