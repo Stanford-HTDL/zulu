@@ -312,6 +312,8 @@ def main():
     if use_class_weights:
         weight = dataset.class_weights
         weight: torch.Tensor = torch.tensor(weight, dtype=torch.float)
+
+        logging.info(f"Class weights: {weight}")
     else: weight = None
 
 
