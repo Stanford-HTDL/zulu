@@ -9,9 +9,10 @@ import time
 import torch
 
 from datasets import ConvLSTMCDataset, EurosatDataset
+from metrics import calc_metrics
 from models import ResNetConvLSTM, ResNetOneDConv, SpectrumNet, SqueezeNet
 from optimizers import SGD, Adam
-from schedulers import StepLR, ReduceLROnPlateau
+from schedulers import ReduceLROnPlateau, StepLR
 from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
@@ -20,6 +21,7 @@ DEFAULT_BATCH_SIZE = 64
 DEFAULT_NUM_EPOCHS = 64
 DEFAULT_OPTIMIZER = SGD.__name__
 DEFAULT_SCHEDULER = StepLR.__name__
+DEFAULT_SCHEDULER_METRIC = "validation_loss"
 # DEFAULT_STEP_SIZE = 10
 # DEFAULT_SCHEDULER_GAMMA = 0.75
 DEFAULT_MODEL_NAME = SqueezeNet.__name__
@@ -41,6 +43,7 @@ DEFAULT_MODEL_FILEPATH = None
 DEFAULT_SAVE_LOSSES = True
 DEFAULT_VALIDATION = True
 DEFAULT_PRINT_VAL_PREDS = False
+DEFAULT_PRINT_METRICS = True
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
 
@@ -127,6 +130,10 @@ def parse_args():
         default=DEFAULT_SCHEDULER
     )
     parser.add_argument(
+        "--scheduler-metric",
+        default=DEFAULT_SCHEDULER_METRIC
+    )
+    parser.add_argument(
         "--num-workers",
         default=DEFAULT_NUM_WORKERS,
         type=int
@@ -176,6 +183,10 @@ def parse_args():
         "--print-val-preds",
         default=DEFAULT_PRINT_VAL_PREDS
     )
+    parser.add_argument(
+        "--print-metrics",
+        default=DEFAULT_PRINT_METRICS
+    )    
     p_args, _ = parser.parse_known_args()
     return p_args    
 
@@ -242,6 +253,7 @@ def main():
 
     validation = arg_is_true(args["validation"])
     print_val_preds: bool = arg_is_true(args["print_val_preds"])
+    print_metrics: bool = arg_is_true(args["print_metrics"])
 
     if validation:
         val_percent = args["val_percent"]
@@ -285,6 +297,7 @@ def main():
         #     scheduler = Scheduler(
         #         optimizer, step_size=step_size, gamma=scheduler_gamma
         #     )
+    scheduler_metric: str = args["scheduler_metric"]
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
@@ -384,6 +397,16 @@ def main():
                     loss = criterion(Y_hat, Y)
                 validation_loss += loss.item()
 
+                Y = Y.cpu()
+                Y_hat = Y_hat.cpu()
+
+
+                metrics: dict = calc_metrics(Y, Y_hat)
+                metrics["validation_loss"] = validation_loss
+                if print_metrics:
+                    for key, value in metrics.items():
+                        logging.info(f"{key}: {value}")
+
                 if print_val_preds:
                     logging.info(
                         f"""
@@ -399,7 +422,7 @@ def main():
 
         if use_scheduler:
             if scheduler.requires_metrics:
-                scheduler.step(validation_loss)
+                scheduler.step(metrics[scheduler_metric])
             else:
                 scheduler.step()
 
