@@ -295,13 +295,16 @@ def main():
     if use_scheduler:
         Scheduler = SCHEDULERS[scheduler_name]
         scheduler = Scheduler(optimizer=optimizer)
+        scheduler_args: dict = scheduler.args
+    else:
+        scheduler_args = dict()
     scheduler_metric: str = args["scheduler_metric"]
     F_beta: float = args["F_beta"]
 
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
-        **args, **model.args, **dataset.args, **optimizer.args, **scheduler.args,
+        **args, **model.args, **dataset.args, **optimizer.args, **scheduler_args,
         experiment_id=experiment_id, time=time_str
     )
 
