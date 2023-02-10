@@ -4,6 +4,7 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 import argparse
 import glob
 import json
+import math
 import os
 import random
 from typing import List
@@ -153,6 +154,7 @@ class ConvLSTMCDataset(Dataset):
 
     DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
     DEFAULT_USE_DATA_AUG: bool = True
+    DEFAULT_USE_SQRT_WEIGHTS: bool = False
     # DEFAULT_VERBOSE: bool = False
 
 
@@ -161,6 +163,7 @@ class ConvLSTMCDataset(Dataset):
         data_manifest_path = args["data_manifest"]
         with open(data_manifest_path) as f:
             data_dict = json.load(f)
+        use_sqrt_weights = arg_is_true(args["use_sqrt_weights"])
         self.args = args            
 
         dir_path = data_dict["dir_path"]
@@ -192,9 +195,15 @@ class ConvLSTMCDataset(Dataset):
                         #         """
                         #     )
                         samples.append(sample_dict)
-        num_samples = num_neg + num_pos
-        self.class_weights = [num_pos / num_samples, num_neg / num_samples]
-
+        # num_samples = num_neg + num_pos
+        if use_sqrt_weights:
+            neg_class_weight = 1 - (math.sqrt(num_neg) / math.sqrt(num_neg + num_pos))
+            pos_class_weight = 1 - (math.sqrt(num_pos) / math.sqrt(num_neg + num_pos))
+        else:
+            neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
+            pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
+        class_weights = [neg_class_weight, pos_class_weight]
+        self.class_weights = class_weights
         # if verbose:
         #     print(
         #         f"""
@@ -229,6 +238,10 @@ class ConvLSTMCDataset(Dataset):
         parser.add_argument(
             "--use-data-aug",
             default=self.DEFAULT_USE_DATA_AUG
+        )
+        parser.add_argument(
+            "--use-sqrt-weights",
+            default=self.DEFAULT_USE_SQRT_WEIGHTS
         )
         # parser.add_argument(
         #     "--verbose",
