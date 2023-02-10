@@ -13,6 +13,8 @@ while read seed; do
     echo "Seed: $seed"
     while read cmd; do
         echo "Command: $cmd"
-        conda run -n {$CONDAENV} nohup python -m train {$cmd} --seed {$seed} > _auto.out & 
+        conda run -n $CONDAENV nohup python -m train $cmd --seed $seed > _auto.out & 
+        PID=$!
+        wait $PID
     done < $CMDFILE
 done < $SEEDFILE
