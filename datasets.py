@@ -196,12 +196,11 @@ class ConvLSTMCDataset(Dataset):
                         #     )
                         samples.append(sample_dict)
         # num_samples = num_neg + num_pos
-        if use_sqrt_weights:
-            neg_class_weight = 1 - (math.sqrt(num_neg) / math.sqrt(num_neg + num_pos))
-            pos_class_weight = 1 - (math.sqrt(num_pos) / math.sqrt(num_neg + num_pos))
-        else:
-            neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
-            pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
+        neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
+        pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
+        if use_sqrt_weights: # Smooth out weights if desired
+            neg_class_weight = math.sqrt(neg_class_weight)
+            pos_class_weight = math.sqrt(pos_class_weight)
         class_weights = [neg_class_weight, pos_class_weight]
         self.class_weights = class_weights
         # if verbose:
