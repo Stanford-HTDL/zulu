@@ -276,7 +276,7 @@ class ConvLSTMCDataset(Dataset):
 
 
     @staticmethod
-    def horizontal_flip(image, p = 0.75):
+    def horizontal_flip(image, p = 0.67):
         if random.random() > p:
             image = TF.hflip(image)
         
@@ -284,7 +284,7 @@ class ConvLSTMCDataset(Dataset):
 
 
     @staticmethod
-    def vertical_flip(image, p = 0.75):
+    def vertical_flip(image, p = 0.67):
         if random.random() > p:
             image = TF.vflip(image)
         
@@ -292,7 +292,7 @@ class ConvLSTMCDataset(Dataset):
 
 
     @staticmethod
-    def rotate(image, p = 0.75, max_angle = 30):
+    def rotate(image, p = 0.67, max_angle = 30):
         if random.random() > p:
             angle = random.randint(- max_angle, max_angle)
             image = TF.rotate(image, angle)
