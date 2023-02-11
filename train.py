@@ -4,6 +4,7 @@ __author__ = "Richard Correro (richard@richardcorrero.com)"
 import argparse
 import logging
 import os
+import random
 import time
 
 import torch
@@ -202,6 +203,7 @@ def main():
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
+    random.seed(seed)
 
     if not args["id"]:
         experiment_id = get_random_string()
