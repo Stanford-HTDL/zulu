@@ -154,6 +154,7 @@ class ConvLSTMCDataset(Dataset):
 
     DEFAULT_DATA_MANIFEST: str = "sits_manifest.json"
     DEFAULT_USE_DATA_AUG: bool = True
+    DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
     # DEFAULT_VERBOSE: bool = False
 
@@ -225,6 +226,7 @@ class ConvLSTMCDataset(Dataset):
         self.samples = samples
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
+        self.use_rotation = arg_is_true(args["use_rotation"])
         # self.verbose = verbose
 
 
@@ -239,13 +241,13 @@ class ConvLSTMCDataset(Dataset):
             default=self.DEFAULT_USE_DATA_AUG
         )
         parser.add_argument(
+            "--use-rotation",
+            default=self.DEFAULT_USE_ROTATION
+        )        
+        parser.add_argument(
             "--use-sqrt-weights",
             default=self.DEFAULT_USE_SQRT_WEIGHTS
         )
-        # parser.add_argument(
-        #     "--verbose",
-        #     default=self.DEFAULT_VERBOSE
-        # )
         args = parse_args(parser=parser)
         return args              
 
@@ -316,7 +318,10 @@ class ConvLSTMCDataset(Dataset):
         filenames: List[str] = self.sort_filenames(sample["filenames"])
         
         if self.use_data_aug:
-            transform_idx = random.randint(0, 2)
+            if self.use_rotation:
+                transform_idx = random.randint(0, 2) 
+            else:
+                transform_idx = random.randint(0, 1) # No rotation
 
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
