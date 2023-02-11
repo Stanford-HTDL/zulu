@@ -327,8 +327,8 @@ class ConvLSTMCDataset(Dataset):
                 transform_idx = random.randint(0, 2) 
             else:
                 transform_idx = random.randint(0, 1) # No rotation
-        random_num: float = random.random()
-        random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
+            random_num: float = random.random()
+            random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
 
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
