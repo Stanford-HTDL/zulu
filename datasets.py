@@ -156,6 +156,7 @@ class ConvLSTMCDataset(Dataset):
     DEFAULT_USE_DATA_AUG: bool = True
     DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
+    MAX_ANGLE: int = 30
     # DEFAULT_VERBOSE: bool = False
 
 
@@ -276,37 +277,41 @@ class ConvLSTMCDataset(Dataset):
 
 
     @staticmethod
-    def horizontal_flip(image, p = 0.67):
-        if random.random() > p:
+    def horizontal_flip(image, random_num: float, p = 0.67):
+        if random_num > p:
             image = TF.hflip(image)
         
         return image
 
 
     @staticmethod
-    def vertical_flip(image, p = 0.67):
-        if random.random() > p:
+    def vertical_flip(image, random_num: float, p = 0.67):
+        if random_num > p:
             image = TF.vflip(image)
         
         return image
 
 
     @staticmethod
-    def rotate(image, p = 0.67, max_angle = 30):
-        if random.random() > p:
-            angle = random.randint(- max_angle, max_angle)
+    def rotate(
+        image, random_num: float, random_int: int, p = 0.67
+    ):
+        if random_num > p:
+            angle = random_int
             image = TF.rotate(image, angle)
         
         return image        
 
 
-    def spatial_transform(self, image: torch.tensor, idx: int) -> torch.tensor:
+    def spatial_transform(
+        self, image: torch.tensor, random_num: float, random_int: int, idx: int
+    ) -> torch.tensor:
         if idx == 0:
-            image = self.horizontal_flip(image)
+            image = self.horizontal_flip(image, random_num=random_num)
         elif idx == 1:
-            image = self.vertical_flip(image)
+            image = self.vertical_flip(image, random_num=random_num)
         else:
-            image = self.rotate(image)  
+            image = self.rotate(image, random_num=random_num, random_int=random_int)  
         return image        
 
 
@@ -322,6 +327,8 @@ class ConvLSTMCDataset(Dataset):
                 transform_idx = random.randint(0, 2) 
             else:
                 transform_idx = random.randint(0, 1) # No rotation
+        random_num: float = random.random()
+        random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
 
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
@@ -331,7 +338,7 @@ class ConvLSTMCDataset(Dataset):
             image: torch.tensor = image.float().contiguous()
             # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
             if self.use_data_aug:
-                image = self.spatial_transform(image, idx=transform_idx)
+                image = self.spatial_transform(image, random_num, random_int, idx=transform_idx)
             image_arrays.append(image)
 
         image_arrays = torch.stack(image_arrays, 0)
