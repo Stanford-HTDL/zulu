@@ -9,9 +9,10 @@ import time
 
 import torch
 
-from datasets import ConvLSTMCDataset, EurosatDataset
+from datasets import ConvLSTMCDataset, EurosatDataset, XYZTileDataset
 from metrics import calc_metrics
-from models import ResNetConvLSTM, ResNetOneDConv, SpectrumNet, SqueezeNet
+from models import (ResNet, ResNetConvLSTM, ResNetOneDConv, SpectrumNet,
+                    SqueezeNet)
 from optimizers import SGD, Adam
 from schedulers import ReduceLROnPlateau, StepLR
 from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
@@ -49,6 +50,7 @@ DEFAULT_SEED = 8675309 # (___)-867-5309
 
 # REMEMBER to update as new models are added!
 MODELS = {
+    ResNet.__name__: ResNet,
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
     ResNetConvLSTM.__name__: ResNetConvLSTM,
@@ -57,7 +59,8 @@ MODELS = {
 
 DATASETS = {
     EurosatDataset.__name__: EurosatDataset,
-    ConvLSTMCDataset.__name__: ConvLSTMCDataset
+    ConvLSTMCDataset.__name__: ConvLSTMCDataset,
+    XYZTileDataset.__name__: XYZTileDataset
 }
 
 CRITERIA = {

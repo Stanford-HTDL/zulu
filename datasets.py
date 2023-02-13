@@ -149,6 +149,211 @@ class EurosatDataset(Dataset):
         }
 
 
+class XYZTileDataset(Dataset):
+    __name__ = "XYZTileDataset"
+
+    DEFAULT_DATA_MANIFEST: str = "sios_manifest.json"
+    DEFAULT_USE_DATA_AUG: bool = True
+    DEFAULT_USE_ROTATION: bool = False
+    DEFAULT_USE_SQRT_WEIGHTS: bool = False
+    MAX_ANGLE: int = 30
+    # DEFAULT_VERBOSE: bool = False
+
+
+    def __init__(self):
+        args = self.parse_args()
+        data_manifest_path = args["data_manifest"]
+        with open(data_manifest_path) as f:
+            data_dict = json.load(f)
+        use_sqrt_weights = arg_is_true(args["use_sqrt_weights"])
+        self.args = args            
+
+        dir_path = data_dict["dir_path"]
+        # verbose: bool = arg_is_true(args["verbose"])
+        # if verbose:
+        #     print(f"Loading samples from {dir_path}")
+        num_pos: int = 0
+        num_neg: int = 0
+        samples = list()
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            if not dirnames:
+                for key, value in data_dict["categories"].items():
+                    if key in dirpath:
+                        for filename in filenames:
+                            if value:
+                                num_pos += 1
+                            else:
+                                num_neg += 1                            
+                            sample_dict = {
+                                "dirpath": dirpath,
+                                "filename": filename,
+                                "label": value
+                            }
+                            # if verbose:
+                            #     print(
+                            #         f"""
+                            #            Sample:
+                            #         Directory: {dirpath}
+                            #         Label: {value}
+                            #         """
+                            #     )
+                            samples.append(sample_dict)
+        # num_samples = num_neg + num_pos
+        neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
+        pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
+        if use_sqrt_weights: # Smooth out weights if desired
+            neg_class_weight = math.sqrt(neg_class_weight)
+            pos_class_weight = math.sqrt(pos_class_weight)
+        class_weights = [neg_class_weight, pos_class_weight]
+        self.class_weights = class_weights
+        # if verbose:
+        #     print(
+        #         f"""
+        #         Done loading samples.
+        #         Number of positive samples: {num_pos}
+        #         Number of negative samples: {num_neg}
+        #         """
+        #     )
+
+        self.transforms = T.Compose([
+            T.Resize((224,224)),
+            # T.CenterCrop((224,224)),
+            T.ToTensor(),
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])                
+
+        self.samples = samples
+        self.categories = data_dict["categories"]
+        self.use_data_aug = arg_is_true(args["use_data_aug"])
+        self.use_rotation = arg_is_true(args["use_rotation"])
+        # self.verbose = verbose
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--data-manifest",
+            default=self.DEFAULT_DATA_MANIFEST
+        )
+        parser.add_argument(
+            "--use-data-aug",
+            default=self.DEFAULT_USE_DATA_AUG
+        )
+        parser.add_argument(
+            "--use-rotation",
+            default=self.DEFAULT_USE_ROTATION
+        )        
+        parser.add_argument(
+            "--use-sqrt-weights",
+            default=self.DEFAULT_USE_SQRT_WEIGHTS
+        )
+        args = parse_args(parser=parser)
+        return args              
+
+
+    def __len__(self):
+        return len(self.samples)    
+
+
+    def read_png(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        # arr = np.array(img)
+        return img
+
+
+    def read_png_as_arr(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        # img = self.transforms(img)
+        arr = np.array(img)
+        return arr      
+
+
+    @staticmethod
+    def sort_filenames(filenames: List[str]) -> List[str]:
+        filenames_sorted = sorted(filenames)
+        return filenames_sorted
+
+
+    @staticmethod
+    def horizontal_flip(image, random_num: float, p = 0.67):
+        if random_num > p:
+            image = TF.hflip(image)
+        
+        return image
+
+
+    @staticmethod
+    def vertical_flip(image, random_num: float, p = 0.67):
+        if random_num > p:
+            image = TF.vflip(image)
+        
+        return image
+
+
+    @staticmethod
+    def rotate(
+        image, random_num: float, random_int: int, p = 0.67
+    ):
+        if random_num > p:
+            angle = random_int
+            image = TF.rotate(image, angle)
+        
+        return image        
+
+
+    def spatial_transform(
+        self, image: torch.tensor, random_num: float, random_int: int, idx: int
+    ) -> torch.tensor:
+        if idx == 0:
+            image = self.horizontal_flip(image, random_num=random_num)
+        elif idx == 1:
+            image = self.vertical_flip(image, random_num=random_num)
+        else:
+            image = self.rotate(image, random_num=random_num, random_int=random_int)  
+        return image        
+
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+
+        # image_arrays: list = list()
+        dirpath: str = sample["dirpath"]
+        # filenames: List[str] = self.sort_filenames(sample["filenames"])
+        filename: str = sample["filename"]
+        
+        if self.use_data_aug:
+            if self.use_rotation:
+                transform_idx = random.randint(0, 2) 
+            else:
+                transform_idx = random.randint(0, 1) # No rotation
+            random_num: float = random.random()
+            random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
+
+        # for filename in filenames:
+        filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+        assert os.path.exists(filepath), f"File {filepath} does not exist."
+        image: torch.tensor = self.read_png(filepath=filepath)
+        image: torch.tensor = self.transforms(image)
+        image: torch.tensor = image.float().contiguous()
+        # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+        if self.use_data_aug:
+            image = self.spatial_transform(image, random_num, random_int, idx=transform_idx)
+        # image_arrays.append(image)
+
+        # image_arrays = torch.stack(image_arrays, 0)
+        # image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
+
+        target: torch.tensor = torch.as_tensor(sample["label"])
+
+        return {
+            'X': image,
+            'Y': target,
+        }           
+
+
 class ConvLSTMCDataset(Dataset):
     __name__ = "ConvLSTMCDataset"
 
