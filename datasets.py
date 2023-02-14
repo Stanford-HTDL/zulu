@@ -157,7 +157,6 @@ class XYZTileDataset(Dataset):
     DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
     MAX_ANGLE: int = 30
-    # DEFAULT_VERBOSE: bool = False
 
 
     def __init__(self):
@@ -169,9 +168,6 @@ class XYZTileDataset(Dataset):
         self.args = args            
 
         dir_path = data_dict["dir_path"]
-        # verbose: bool = arg_is_true(args["verbose"])
-        # if verbose:
-        #     print(f"Loading samples from {dir_path}")
         num_pos: int = 0
         num_neg: int = 0
         samples = list()
@@ -189,16 +185,7 @@ class XYZTileDataset(Dataset):
                                 "filename": filename,
                                 "label": value
                             }
-                            # if verbose:
-                            #     print(
-                            #         f"""
-                            #            Sample:
-                            #         Directory: {dirpath}
-                            #         Label: {value}
-                            #         """
-                            #     )
                             samples.append(sample_dict)
-        # num_samples = num_neg + num_pos
         neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
         pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
         if use_sqrt_weights: # Smooth out weights if desired
@@ -206,14 +193,6 @@ class XYZTileDataset(Dataset):
             pos_class_weight = math.sqrt(pos_class_weight)
         class_weights = [neg_class_weight, pos_class_weight]
         self.class_weights = class_weights
-        # if verbose:
-        #     print(
-        #         f"""
-        #         Done loading samples.
-        #         Number of positive samples: {num_pos}
-        #         Number of negative samples: {num_neg}
-        #         """
-        #     )
 
         self.transforms = T.Compose([
             T.Resize((224,224)),
@@ -229,7 +208,6 @@ class XYZTileDataset(Dataset):
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
         self.use_rotation = arg_is_true(args["use_rotation"])
-        # self.verbose = verbose
 
 
     def parse_args(self):
@@ -260,13 +238,11 @@ class XYZTileDataset(Dataset):
 
     def read_png(self, filepath: str) -> np.ndarray:
         img = Image.open(filepath).convert('RGB')
-        # arr = np.array(img)
         return img
 
 
     def read_png_as_arr(self, filepath: str) -> np.ndarray:
         img = Image.open(filepath).convert('RGB')
-        # img = self.transforms(img)
         arr = np.array(img)
         return arr      
 
@@ -274,78 +250,46 @@ class XYZTileDataset(Dataset):
     @staticmethod
     def sort_filenames(filenames: List[str]) -> List[str]:
         filenames_sorted = sorted(filenames)
-        return filenames_sorted
-
-
-    @staticmethod
-    def horizontal_flip(image, random_num: float, p = 0.67):
-        if random_num > p:
-            image = TF.hflip(image)
-        
-        return image
-
-
-    @staticmethod
-    def vertical_flip(image, random_num: float, p = 0.67):
-        if random_num > p:
-            image = TF.vflip(image)
-        
-        return image
-
-
-    @staticmethod
-    def rotate(
-        image, random_num: float, random_int: int, p = 0.67
-    ):
-        if random_num > p:
-            angle = random_int
-            image = TF.rotate(image, angle)
-        
-        return image        
+        return filenames_sorted      
 
 
     def spatial_transform(
-        self, image: torch.tensor, random_num: float, random_int: int, idx: int
+        self, image: torch.tensor, angle: int, idx: int
     ) -> torch.tensor:
         if idx == 0:
-            image = self.horizontal_flip(image, random_num=random_num)
+            return image
         elif idx == 1:
-            image = self.vertical_flip(image, random_num=random_num)
+            image = TF.vflip(image)
+        elif idx == 2:
+            image = TF.hflip(image)
         else:
-            image = self.rotate(image, random_num=random_num, random_int=random_int)  
+            image = TF.rotate(image, angle)  
         return image        
 
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
 
-        # image_arrays: list = list()
         dirpath: str = sample["dirpath"]
-        # filenames: List[str] = self.sort_filenames(sample["filenames"])
         filename: str = sample["filename"]
         
         if self.use_data_aug:
             if self.use_rotation:
-                transform_idx = random.randint(0, 2) 
+                transform_idx = random.randint(0, 3) 
+                random_angle: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
             else:
-                transform_idx = random.randint(0, 1) # No rotation
-            random_num: float = random.random()
-            random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
+                transform_idx = random.randint(0, 2) # No rotation
+                random_angle: int = 0
 
-        # for filename in filenames:
         filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
         assert os.path.exists(filepath), f"File {filepath} does not exist."
         image: torch.tensor = self.read_png(filepath=filepath)
         image: torch.tensor = self.transforms(image)
         image: torch.tensor = image.float().contiguous()
-        # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
         if self.use_data_aug:
-            image = self.spatial_transform(image, random_num, random_int, idx=transform_idx)
-        # image_arrays.append(image)
-
-        # image_arrays = torch.stack(image_arrays, 0)
-        # image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
-
+            image = self.spatial_transform(
+                image, angle=random_angle, idx=transform_idx
+            )
         target: torch.tensor = torch.as_tensor(sample["label"])
 
         return {
@@ -362,7 +306,6 @@ class ConvLSTMCDataset(Dataset):
     DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
     MAX_ANGLE: int = 30
-    # DEFAULT_VERBOSE: bool = False
 
 
     def __init__(self):
@@ -374,9 +317,6 @@ class ConvLSTMCDataset(Dataset):
         self.args = args            
 
         dir_path = data_dict["dir_path"]
-        # verbose: bool = arg_is_true(args["verbose"])
-        # if verbose:
-        #     print(f"Loading samples from {dir_path}")
         num_pos: int = 0
         num_neg: int = 0
         samples = list()
@@ -393,16 +333,7 @@ class ConvLSTMCDataset(Dataset):
                             "filenames": filenames,
                             "label": value
                         }
-                        # if verbose:
-                        #     print(
-                        #         f"""
-                        #            Sample:
-                        #         Directory: {dirpath}
-                        #         Label: {value}
-                        #         """
-                        #     )
                         samples.append(sample_dict)
-        # num_samples = num_neg + num_pos
         neg_class_weight = 1 - ((num_neg) / (num_neg + num_pos))
         pos_class_weight = 1 - ((num_pos) / (num_neg + num_pos))
         if use_sqrt_weights: # Smooth out weights if desired
@@ -410,14 +341,6 @@ class ConvLSTMCDataset(Dataset):
             pos_class_weight = math.sqrt(pos_class_weight)
         class_weights = [neg_class_weight, pos_class_weight]
         self.class_weights = class_weights
-        # if verbose:
-        #     print(
-        #         f"""
-        #         Done loading samples.
-        #         Number of positive samples: {num_pos}
-        #         Number of negative samples: {num_neg}
-        #         """
-        #     )
 
         self.transforms = T.Compose([
             T.Resize((224,224)),
@@ -433,7 +356,6 @@ class ConvLSTMCDataset(Dataset):
         self.categories = data_dict["categories"]
         self.use_data_aug = arg_is_true(args["use_data_aug"])
         self.use_rotation = arg_is_true(args["use_rotation"])
-        # self.verbose = verbose
 
 
     def parse_args(self):
@@ -464,13 +386,11 @@ class ConvLSTMCDataset(Dataset):
 
     def read_png(self, filepath: str) -> np.ndarray:
         img = Image.open(filepath).convert('RGB')
-        # arr = np.array(img)
         return img
 
 
     def read_png_as_arr(self, filepath: str) -> np.ndarray:
         img = Image.open(filepath).convert('RGB')
-        # img = self.transforms(img)
         arr = np.array(img)
         return arr      
 
@@ -505,19 +425,21 @@ class ConvLSTMCDataset(Dataset):
             angle = random_int
             image = TF.rotate(image, angle)
         
-        return image        
+        return image
 
 
     def spatial_transform(
-        self, image: torch.tensor, random_num: float, random_int: int, idx: int
+        self, image: torch.tensor, angle: int, idx: int
     ) -> torch.tensor:
         if idx == 0:
-            image = self.horizontal_flip(image, random_num=random_num)
+            return image
         elif idx == 1:
-            image = self.vertical_flip(image, random_num=random_num)
+            image = TF.vflip(image)
+        elif idx == 2:
+            image = TF.hflip(image)
         else:
-            image = self.rotate(image, random_num=random_num, random_int=random_int)  
-        return image        
+            image = TF.rotate(image, angle)  
+        return image   
 
 
     def __getitem__(self, idx):
@@ -529,11 +451,11 @@ class ConvLSTMCDataset(Dataset):
         
         if self.use_data_aug:
             if self.use_rotation:
-                transform_idx = random.randint(0, 2) 
+                transform_idx = random.randint(0, 3) 
+                random_angle: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
             else:
-                transform_idx = random.randint(0, 1) # No rotation
-            random_num: float = random.random()
-            random_int: int = random.randint(-self.MAX_ANGLE, self.MAX_ANGLE)
+                transform_idx = random.randint(0, 2) # No rotation
+                random_angle: int = 0
 
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
@@ -543,7 +465,9 @@ class ConvLSTMCDataset(Dataset):
             image: torch.tensor = image.float().contiguous()
             # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
             if self.use_data_aug:
-                image = self.spatial_transform(image, random_num, random_int, idx=transform_idx)
+                image = self.spatial_transform(
+                    image, angle=random_angle, idx=transform_idx
+                )
             image_arrays.append(image)
 
         image_arrays = torch.stack(image_arrays, 0)

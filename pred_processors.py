@@ -358,27 +358,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             'X': image_tensors,
             'Y': None,
             "args": args
-        }         
-
-
-    # def _make_samples_from_planet_api(
-    #     self, geojson_dir_path: str, start: str, end: str, zooms: List[int], 
-    #     false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
-    #     image_parallelizer: Optional[Parallelizer] = Parallelizer(),
-    #     parallelizer: Optional[Parallelizer] = Parallelizer()
-    # ):
-    #     data: Data = Data(self.walk_dir, dir_path=geojson_dir_path)
-
-    #     data >> Transformer(tuple_to_args(self.get_filepaths)) \
-    #          >> Transformer(
-    #             tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
-    #             start=start, end=end, zooms=zooms, false_color_index=false_color_index,
-    #             truncate=truncate, image_parallelizer=image_parallelizer,
-    #             parallelizer=parallelizer
-    #          ) \
-    #          >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
-
-    #     yield from data
+        }
 
 
     def _make_samples_from_planet_api(
