@@ -531,3 +531,20 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             self._save_results_from_local_files(input=input, output=output)
         else:
             self._save_results_from_planet_api(input=input, output=output)
+
+
+class ResNetProcessor(ConvLSTMCProcessor):
+    __name__ = "ResNetProcessor"
+
+
+    def make_sample(self, images: List[Image.Image], *args) -> dict:
+        for image in images:
+            image: torch.Tensor = self.TRANSORMS(image)
+            image: torch.Tensor = image.float().contiguous()
+            image: torch.Tensor = image.unsqueeze(0)
+
+            yield {
+                'X': image,
+                'Y': None,
+                "args": args
+            }    

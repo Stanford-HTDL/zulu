@@ -9,8 +9,9 @@ import time
 
 import torch
 
-from models import ResNetConvLSTM, ResNetOneDConv, SpectrumNet, SqueezeNet
-from pred_processors import ConvLSTMCProcessor, Processor
+from models import (ResNet, ResNetConvLSTM, ResNetOneDConv, SpectrumNet,
+                    SqueezeNet)
+from pred_processors import ConvLSTMCProcessor, Processor, ResNetProcessor
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
@@ -26,6 +27,7 @@ DEFAULT_SEED = 8675309 # (___)-867-5309
 
 # REMEMBER to update as new models are added!
 MODELS = {
+    ResNet.__name__: ResNet,
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
     ResNetConvLSTM.__name__: ResNetConvLSTM,
@@ -33,7 +35,8 @@ MODELS = {
 }
 
 PRED_PROCESSORS = {
-    ConvLSTMCProcessor.__name__: ConvLSTMCProcessor
+    ConvLSTMCProcessor.__name__: ConvLSTMCProcessor,
+    ResNetProcessor.__name__: ResNetProcessor
 }
 
 
