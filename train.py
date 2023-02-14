@@ -9,10 +9,11 @@ import time
 
 import torch
 
-from datasets import ConvLSTMCDataset, EurosatDataset, XYZTileDataset
+from datasets import (ConvLSTMCDataset, EurosatDataset,
+                      XYZObjectDetectionDataset, XYZTileDataset)
 from metrics import calc_metrics
-from models import (ResNet, ResNetConvLSTM, ResNetOneDConv, SpectrumNet,
-                    SqueezeNet)
+from models import (FasterRCNNV2, ResNet, ResNetConvLSTM, ResNetOneDConv,
+                    SpectrumNet, SqueezeNet)
 from optimizers import SGD, Adam
 from schedulers import ReduceLROnPlateau, StepLR
 from script_utils import arg_is_false, arg_is_true, get_args, get_random_string
@@ -54,13 +55,15 @@ MODELS = {
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
     ResNetConvLSTM.__name__: ResNetConvLSTM,
-    ResNetOneDConv.__name__: ResNetOneDConv
+    ResNetOneDConv.__name__: ResNetOneDConv,
+    FasterRCNNV2.__name__: FasterRCNNV2
 }
 
 DATASETS = {
     EurosatDataset.__name__: EurosatDataset,
     ConvLSTMCDataset.__name__: ConvLSTMCDataset,
-    XYZTileDataset.__name__: XYZTileDataset
+    XYZTileDataset.__name__: XYZTileDataset,
+    XYZObjectDetectionDataset.__name__: XYZObjectDetectionDataset
 }
 
 CRITERIA = {

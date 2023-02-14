@@ -20,6 +20,10 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
+OBJECT_DETECTORS = {
+    "fasterrcnn_resnet50_fpn_v2":models.detection.fasterrcnn_resnet50_fpn_v2
+}
+
 # BACKBONE_WEIGHTS = {
 #     "resnet18": models.ResNet18_Weights.DEFAULT,
 #     "resnet34": models.ResNet34_Weights.DEFAULT,
@@ -551,4 +555,54 @@ class ResNetOneDConv(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
            
-        return x           
+        return x
+
+
+class FasterRCNNV2(nn.Module):
+    __name__ = "FasterRCNNV2"
+
+    DEFAULT_NUM_CHANNLES = 3
+    DEFAULT_NUM_CLASSES = 2
+    DEFAULT_TRAINABLE_LAYERS = 3
+
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        args = self.parse_args()
+        num_channels = int(args["num_channels"])
+        assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."        
+        
+        num_classes = int(args["num_classes"])
+        trainable_layers = int(args["trainable_layers"])
+        self.args = {**args, **kwargs}
+
+        model =  models.detection.fasterrcnn_resnet50_fpn_v2(
+            num_classes=num_classes, trainable_backbone_layers=trainable_layers, 
+            **kwargs
+        )
+        self.model = model
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--num-channels",
+            default=self.DEFAULT_NUM_CHANNLES,
+            type=int
+        )
+        parser.add_argument(
+            "--num-classes",
+            default=self.DEFAULT_NUM_CLASSES,
+            type=int
+        )
+        parser.add_argument(
+            "--trainable-layers",
+            default=self.DEFAULT_TRAINABLE_LAYERS,
+            type=int
+        )  
+        args = parse_args(parser=parser)
+        return args
+
+    
+    def forward(self, x):
+        return self.model(x)

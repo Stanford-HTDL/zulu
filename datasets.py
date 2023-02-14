@@ -254,8 +254,8 @@ class XYZTileDataset(Dataset):
 
 
     def spatial_transform(
-        self, image: torch.tensor, angle: int, idx: int
-    ) -> torch.tensor:
+        self, image: torch.Tensor, angle: int, idx: int
+    ) -> torch.Tensor:
         if idx == 0:
             return image
         elif idx == 1:
@@ -283,14 +283,14 @@ class XYZTileDataset(Dataset):
 
         filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
         assert os.path.exists(filepath), f"File {filepath} does not exist."
-        image: torch.tensor = self.read_png(filepath=filepath)
-        image: torch.tensor = self.transforms(image)
-        image: torch.tensor = image.float().contiguous()
+        image: torch.Tensor = self.read_png(filepath=filepath)
+        image: torch.Tensor = self.transforms(image)
+        image: torch.Tensor = image.float().contiguous()
         if self.use_data_aug:
             image = self.spatial_transform(
                 image, angle=random_angle, idx=transform_idx
             )
-        target: torch.tensor = torch.as_tensor(sample["label"])
+        target: torch.Tensor = torch.as_tensor(sample["label"])
 
         return {
             'X': image,
@@ -401,36 +401,9 @@ class ConvLSTMCDataset(Dataset):
         return filenames_sorted
 
 
-    @staticmethod
-    def horizontal_flip(image, random_num: float, p = 0.67):
-        if random_num > p:
-            image = TF.hflip(image)
-        
-        return image
-
-
-    @staticmethod
-    def vertical_flip(image, random_num: float, p = 0.67):
-        if random_num > p:
-            image = TF.vflip(image)
-        
-        return image
-
-
-    @staticmethod
-    def rotate(
-        image, random_num: float, random_int: int, p = 0.67
-    ):
-        if random_num > p:
-            angle = random_int
-            image = TF.rotate(image, angle)
-        
-        return image
-
-
     def spatial_transform(
-        self, image: torch.tensor, angle: int, idx: int
-    ) -> torch.tensor:
+        self, image: torch.Tensor, angle: int, idx: int
+    ) -> torch.Tensor:
         if idx == 0:
             return image
         elif idx == 1:
@@ -460,10 +433,10 @@ class ConvLSTMCDataset(Dataset):
         for filename in filenames:
             filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
             assert os.path.exists(filepath), f"File {filepath} does not exist."
-            image: torch.tensor = self.read_png(filepath=filepath)
-            image: torch.tensor = self.transforms(image)
-            image: torch.tensor = image.float().contiguous()
-            # image: torch.tensor = torch.as_tensor(arr.copy()).float().contiguous()
+            image: torch.Tensor = self.read_png(filepath=filepath)
+            image: torch.Tensor = self.transforms(image)
+            image: torch.Tensor = image.float().contiguous()
+            # image: torch.Tensor = torch.as_tensor(arr.copy()).float().contiguous()
             if self.use_data_aug:
                 image = self.spatial_transform(
                     image, angle=random_angle, idx=transform_idx
@@ -473,7 +446,7 @@ class ConvLSTMCDataset(Dataset):
         image_arrays = torch.stack(image_arrays, 0)
         # image_arrays = torch.swapaxes(image_arrays, 1, -1) # _ x W x H x C -> _ x C x H x W
 
-        target: torch.tensor = torch.as_tensor(sample["label"])
+        target: torch.Tensor = torch.as_tensor(sample["label"])
 
         return {
             'X': image_arrays,
@@ -488,3 +461,150 @@ class ConvLSTMODDataset(ConvLSTMCDataset):
 
     def __init__(self, data_manifest_path: str):
         raise NotImplementedError("This class is not implemented yet.")
+
+
+class XYZObjectDetectionDataset(Dataset):
+    __name__ = "XYZObjectDetectionDataset"
+
+    DEFAULT_DATA_MANIFEST: str = "sios_annotations_manifest.json"
+    DEFAULT_ANNOTATIONS: str = "sios_annotations.json"
+    DEFAULT_POS_ONLY: bool = True
+
+
+    def __init__(self):
+        args = self.parse_args()
+        data_manifest_path = args["data_manifest"]
+        with open(data_manifest_path) as f:
+            data_dict = json.load(f)
+
+        annotations_path = args["annotations_path"]
+        with open(annotations_path) as f:
+            annotations_dict: dict = json.load(f)
+
+        pos_only = arg_is_true(args["pos_only"])
+        self.args = args            
+
+        dir_path = data_dict["dir_path"]
+        num_pos: int = 0
+        num_neg: int = 0
+        samples = list()
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            if not dirnames:
+                for key, value in data_dict["categories"].items():
+                    if not value and pos_only:
+                        continue
+                    if key in dirpath:
+                        for tile_idx, annotation in annotations_dict.items():
+                            print(f'asdlfhja;: {dirpath}')
+                            if tile_idx in dirpath:
+                                for filename in filenames:
+                                    if value:
+                                        num_pos += 1
+                                    else:
+                                        num_neg += 1                            
+                                    sample_dict = {
+                                        "dirpath": dirpath,
+                                        "filename": filename,
+                                        "annotation": annotation,
+                                        "label": value
+                                    }
+                                    samples.append(sample_dict)
+
+        self.transforms = T.Compose([
+            T.Resize((224,224)),
+            # T.CenterCrop((224,224)),
+            T.ToTensor(),
+            T.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])                
+
+        self.samples = samples
+        self.categories = data_dict["categories"]
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--data-manifest",
+            default=self.DEFAULT_DATA_MANIFEST
+        )
+        parser.add_argument(
+            "--annotations-path",
+            default=self.DEFAULT_ANNOTATIONS
+        )
+        parser.add_argument(
+            "--pos-only",
+            default=self.DEFAULT_POS_ONLY
+        )
+        args = parse_args(parser=parser)
+        return args              
+
+
+    def __len__(self):
+        return len(self.samples)    
+
+
+    def read_png(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        return img
+
+
+    def read_png_as_arr(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        arr = np.array(img)
+        return arr      
+
+
+    @staticmethod
+    def sort_filenames(filenames: List[str]) -> List[str]:
+        filenames_sorted = sorted(filenames)
+        return filenames_sorted
+
+
+    @staticmethod
+    def make_bounding_box_from_annotation(annotation: dict, index: int) -> torch.Tensor:
+        x = annotation["x"]
+        y = annotation["y"]
+        width = annotation["width"]
+        height = annotation["height"]
+
+        area = width * height
+        area = torch.as_tensor(area, dtype=torch.float32)
+
+        x_max = x + width
+        y_max = y + height
+
+        boxes = torch.tensor([x, y, x_max, y_max])
+        labels = torch.ones(1, dtype=torch.int64)
+        
+        target = dict()
+        target["boxes"] = torch.tensor(boxes).unsqueeze(0)
+        target["labels"] = torch.tensor(labels).unsqueeze(0)
+        target["image_id"] = torch.tensor([index]).unsqueeze(0)
+        target["area"] = area
+        return target
+
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+
+        dirpath: str = sample["dirpath"]
+        filename: str = sample["filename"]
+        annotation: dict = sample["annotation"]
+
+        filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+        assert os.path.exists(filepath), f"File {filepath} does not exist."
+        image: torch.Tensor = self.read_png(filepath=filepath)
+        image: torch.Tensor = self.transforms(image)
+        image: torch.Tensor = image.float().contiguous()
+
+        target: torch.Tensor = self.make_bounding_box_from_annotation(
+            annotation=annotation, index=idx
+        )
+
+        return {
+            'X': image,
+            'Y': target,
+        }           
