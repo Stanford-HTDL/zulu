@@ -372,8 +372,6 @@ def main():
                         "labels": Y[0]["labels"][i].to(device=device),
                     }
                     targets.append(target)
-                print(targets)
-                exit()
                 output = model(X, targets=targets)
                 logging.info(output)
             else:
@@ -410,15 +408,13 @@ def main():
                 X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
                 if model.INCLUDES_BACKPROP:
                     targets = list()
-                    for i in range(len(Y[0]["image_id"])):
+                    for i in range(len(Y[0]["labels"])):
                         target = {
-                            "boxes": Y[0]["boxes"][i],
-                            "labels": Y[0]["labels"][i],
-                            "image_id": Y[0]["image_id"][i],
-                            "area": Y[0]["area"][i]
+                            "boxes": Y[0]["boxes"][i].to(device=device),
+                            "labels": Y[0]["labels"][i].to(device=device),
                         }
                         targets.append(target)
-                    output = model(X, targets)
+                    output = model(X, targets=targets)
                     logging.info(output)
                 else:           
                     Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
