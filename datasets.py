@@ -495,7 +495,6 @@ class XYZObjectDetectionDataset(Dataset):
                         continue
                     if key in dirpath:
                         for tile_idx, annotation in annotations_dict.items():
-                            print(f'asdlfhja;: {dirpath}')
                             if tile_idx in dirpath:
                                 for filename in filenames:
                                     if value:
@@ -582,8 +581,8 @@ class XYZObjectDetectionDataset(Dataset):
         target = dict()
         target["boxes"] = boxes.unsqueeze(0)
         target["labels"] = labels
-        target["image_id"] = [index]
-        target["area"] = area
+        # target["image_id"] = [index]
+        # target["area"] = area
         return target
 
 
@@ -604,7 +603,9 @@ class XYZObjectDetectionDataset(Dataset):
             annotation=annotation, index=idx
         )
 
-        return {
-            'X': image,
-            'Y': [target],
-        }           
+        return image, target
+
+        # return {
+        #     'X': image,
+        #     'Y': [target],
+        # }           

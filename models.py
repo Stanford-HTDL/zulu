@@ -20,14 +20,23 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
+BACKBONE_WEIGHTS = {
+    "resnet18": models.ResNet18_Weights,
+    "resnet34": models.ResNet34_Weights,
+    "resnet50": models.ResNet50_Weights,
+    "resnet101": models.ResNet101_Weights,
+    "resnet152": models.ResNet152_Weights    
+}
+
 try:
     OBJECT_DETECTORS = {
-        "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2
+        "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2,
+        "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn
     }
 except:
     # Cheeky little quick-fix
     OBJECT_DETECTORS = {
-        "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn
+        "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn,
     }
 
 class Fire(nn.Module):
@@ -61,7 +70,7 @@ class Fire(nn.Module):
 class SqueezeNet(nn.Module):
     __name__ = "SqueezeNet"
 
-    INCLUDES_BACKPROP = False    
+    IS_OBJECT_DETECTOR = False    
 
     DEFAULT_NUM_CHANNLES: int = 4
     DEFAULT_NUM_CLASSES: int = 10
@@ -146,7 +155,7 @@ class SpectrumNet(SqueezeNet):
     """
     __name__ = "SpectrumNet"
 
-    INCLUDES_BACKPROP = False    
+    IS_OBJECT_DETECTOR = False    
 
 
     def __init__(self) -> None:
@@ -190,7 +199,7 @@ class SpectrumNet(SqueezeNet):
 class ResNetConvLSTM(nn.Module):
     __name__ = "ResNetConvLSTM"
 
-    INCLUDES_BACKPROP = False    
+    IS_OBJECT_DETECTOR = False    
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
@@ -304,7 +313,7 @@ class ResNetConvLSTM(nn.Module):
 class ResNet(nn.Module):
     __name__ = "ResNet"
 
-    INCLUDES_BACKPROP = False
+    IS_OBJECT_DETECTOR = False
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
@@ -394,7 +403,7 @@ class ResNet(nn.Module):
 class ResNetOneDConv(nn.Module):
     __name__ = "ResNetOneDConv"
 
-    INCLUDES_BACKPROP = False    
+    IS_OBJECT_DETECTOR = False    
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
@@ -530,12 +539,13 @@ class ResNetOneDConv(nn.Module):
 class FasterRCNN(nn.Module):
     __name__ = "FasterRCNN"
 
-    INCLUDES_BACKPROP = True
-    MODEL_NAME = "fasterrcnn_resnet50_fpn_v2"
+    IS_OBJECT_DETECTOR = True
+    MODEL_NAME = "fasterrcnn_resnet50_fpn"
 
     DEFAULT_NUM_CHANNLES = 3
     DEFAULT_NUM_CLASSES = 2
     DEFAULT_TRAINABLE_LAYERS = 3
+    DEFAULT_BACKBONE_NAME: str = "resnet152"
 
 
     def __init__(self, **kwargs):
@@ -546,11 +556,13 @@ class FasterRCNN(nn.Module):
         
         num_classes = int(args["num_classes"])
         trainable_layers = int(args["trainable_layers"])
+        backbone_name: str = args["backbone"]        
+        backbone_weights = BACKBONE_WEIGHTS[backbone_name]
         self.args = {**args, **kwargs}
 
         model =  OBJECT_DETECTORS[self.MODEL_NAME](
             num_classes=num_classes, trainable_backbone_layers=trainable_layers, 
-            **kwargs
+            backbone_weights=backbone_weights, **kwargs
         )
         self.model = model
 
@@ -571,7 +583,11 @@ class FasterRCNN(nn.Module):
             "--trainable-layers",
             default=self.DEFAULT_TRAINABLE_LAYERS,
             type=int
-        )  
+        )
+        parser.add_argument(
+            "--backbone",
+            default=self.DEFAULT_BACKBONE_NAME
+        )        
         args = parse_args(parser=parser)
         return args
 

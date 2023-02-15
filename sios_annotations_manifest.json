@@ -1,0 +1,8 @@
+{
+    "categories": {
+        "Negative": 0,
+        "Positive": 1
+    },
+    "dir_path": "sits/",
+    "annotations_path": "sios_annotations.json"
+}

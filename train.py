@@ -7,10 +7,12 @@ import os
 import random
 import time
 
+import numpy as np
 import torch
 
 from datasets import (ConvLSTMCDataset, EurosatDataset,
                       XYZObjectDetectionDataset, XYZTileDataset)
+from detection import collate_fn, evaluate, train_one_epoch
 from metrics import calc_metrics
 from models import (FasterRCNN, ResNet, ResNetConvLSTM, ResNetOneDConv,
                     SpectrumNet, SqueezeNet)
@@ -46,6 +48,7 @@ DEFAULT_SAVE_LOSSES = True
 DEFAULT_VALIDATION = True
 DEFAULT_PRINT_VAL_PREDS = False
 DEFAULT_PRINT_METRICS = True
+DEFAULT_THRESH_LIST = np.arange(0.5, 0.76, 0.05).round(8)
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
 
@@ -197,7 +200,7 @@ def parse_args():
     parser.add_argument(
         "--print-metrics",
         default=DEFAULT_PRINT_METRICS
-    )    
+    ) 
     p_args, _ = parser.parse_known_args()
     return p_args    
 
@@ -283,15 +286,29 @@ def main():
     shuffle = arg_is_true(args["shuffle"])
     num_workers = args["num_workers"]
     pin_memory = arg_is_true(args["pin_memory"])
-    train_loader = torch.utils.data.DataLoader(
-        train_set, shuffle=shuffle, batch_size=batch_size, 
-        num_workers=num_workers, pin_memory=pin_memory,
-    )
+    if model.IS_OBJECT_DETECTOR:
+        train_loader = torch.utils.data.DataLoader(
+            train_set, shuffle=shuffle, batch_size=batch_size, 
+            num_workers=num_workers, pin_memory=pin_memory,
+            collate_fn=collate_fn
+        )
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            train_set, shuffle=shuffle, batch_size=batch_size, 
+            num_workers=num_workers, pin_memory=pin_memory,
+        )        
     if validation:
-        validation__loader = torch.utils.data.DataLoader(
-            validation_set, shuffle=False, batch_size=batch_size, 
-            num_workers=num_workers, pin_memory=pin_memory
-        )    
+        if model.IS_OBJECT_DETECTOR:
+            validation_loader = torch.utils.data.DataLoader(
+                validation_set, shuffle=False, batch_size=batch_size, 
+                num_workers=num_workers, pin_memory=pin_memory,
+                collate_fn=collate_fn
+            )                
+        else:
+            validation_loader = torch.utils.data.DataLoader(
+                validation_set, shuffle=False, batch_size=batch_size, 
+                num_workers=num_workers, pin_memory=pin_memory
+            )    
 
     optimizer_name = args["optimizer"]
     Optimizer = OPTIMIZERS[optimizer_name]      
@@ -351,31 +368,25 @@ def main():
     logging.info("Starting training...")
     for epoch in range(1, num_epochs + 1):
         logging.info(f"Starting epoch {epoch}...")
-        model.train()
-        train_loss = 0.0
-        for batch in train_loader:
-            X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-            X_num_channels = X.shape[channel_axis]
-            assert X_num_channels == model_num_channels, \
-                f"Network has been defined with {model_num_channels}" \
-                f"input channels, but loaded images have {X_num_channels}" \
-                "channels. Please check that the images are loaded correctly."
-            
-            # logging.info(f"X size: {X.shape}")
-            # logging.info(f"Y size: {Y.shape}")
-            X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
-            if model.INCLUDES_BACKPROP:
-                targets = list()
-                for i in range(len(Y[0]["labels"])):
-                    target = {
-                        "boxes": Y[0]["boxes"][i].to(device=device),
-                        "labels": Y[0]["labels"][i].to(device=device),
-                    }
-                    targets.append(target)
-                output = model(X, targets=targets)
-                for key, value in output.items():
-                    logging.info(f"{key}: {value}")
-            else:
+        if model.IS_OBJECT_DETECTOR:
+            train_loss = train_one_epoch(
+                model=model, optimizer=optimizer, data_loader=train_loader, 
+                device=device, lr_scheduler=None
+            )   
+        else:
+            model.train()
+            train_loss = 0.0            
+            for batch in train_loader:
+                X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
+                X_num_channels = X.shape[channel_axis]
+                assert X_num_channels == model_num_channels, \
+                    f"Network has been defined with {model_num_channels}" \
+                    f"input channels, but loaded images have {X_num_channels}" \
+                    "channels. Please check that the images are loaded correctly."
+                
+                # logging.info(f"X size: {X.shape}")
+                # logging.info(f"Y size: {Y.shape}")
+                X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
                 Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
                 optimizer.zero_grad()
                 with torch.autocast(
@@ -397,28 +408,26 @@ def main():
         )
         validation_loss = 0.0
         if validation:
-            model.eval()
-            for batch in validation__loader:
-                X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-                X_num_channels = X.shape[channel_axis]
-                assert X_num_channels == model_num_channels, \
-                    f"Network has been defined with {model_num_channels} " \
-                    f"input channels, but loaded images have {X_num_channels} " \
-                    "channels. Please check that the images are loaded correctly."
-                
-                X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
-                if model.INCLUDES_BACKPROP:
-                    targets = list()
-                    for i in range(len(Y[0]["labels"])):
-                        target = {
-                            "boxes": Y[0]["boxes"][i].to(device=device),
-                            "labels": Y[0]["labels"][i].to(device=device),
-                        }
-                        targets.append(target)
-                    output = model(X, targets=targets)
-                    for key, value in output.items():
-                        logging.info(f"{key}: {value}")
-                else:           
+            if model.IS_OBJECT_DETECTOR:
+                mAP = evaluate(
+                    model=model, data_loader=validation_loader, device=device, 
+                    thresh_list=DEFAULT_THRESH_LIST
+                )
+                metrics = {"mAP": mAP}
+                if print_metrics:
+                    for key, value in metrics.items():
+                        logging.info(f"{key}: {value}")                
+            else:
+                model.eval()
+                for batch in validation_loader:
+                    X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
+                    X_num_channels = X.shape[channel_axis]
+                    assert X_num_channels == model_num_channels, \
+                        f"Network has been defined with {model_num_channels} " \
+                        f"input channels, but loaded images have {X_num_channels} " \
+                        "channels. Please check that the images are loaded correctly."
+                    
+                    X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
                     Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
                     with torch.autocast(
                         device.type if device.type != "mps" else "cpu", enabled=use_mp 
@@ -451,7 +460,7 @@ def main():
                             """
                         )
 
-        if not model.INCLUDES_BACKPROP and use_scheduler:
+        if use_scheduler:
             if scheduler.requires_metrics:
                 scheduler.step(metrics[scheduler_metric])
             else:
