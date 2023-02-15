@@ -355,7 +355,6 @@ def main():
         train_loss = 0.0
         for batch in train_loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
-            print(Y)
             X_num_channels = X.shape[channel_axis]
             assert X_num_channels == model_num_channels, \
                 f"Network has been defined with {model_num_channels}" \
@@ -369,8 +368,8 @@ def main():
                 targets = list()
                 for i in range(len(Y[0]["image_id"])):
                     target = {
-                        "boxes": Y[0]["boxes"][i],
-                        "labels": Y[0]["labels"][i],
+                        "boxes": Y[0]["boxes"][i].to(device=device),
+                        "labels": Y[0]["labels"][i].to(device=device),
                         "image_id": Y[0]["image_id"][i],
                         "area": Y[0]["area"][i]
                     }
