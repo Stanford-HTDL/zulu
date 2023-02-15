@@ -20,9 +20,9 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
-OBJECT_DETECTORS = {
-    "fasterrcnn_resnet50_fpn_v2":models.detection.fasterrcnn_resnet50_fpn_v2
-}
+# OBJECT_DETECTORS = {
+#     "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2
+# }
 
 
 class Fire(nn.Module):
