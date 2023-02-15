@@ -373,7 +373,8 @@ def main():
                     }
                     targets.append(target)
                 output = model(X, targets=targets)
-                logging.info(output)
+                for key, value in output.items():
+                    logging.info(f"{key}: {value}")
             else:
                 Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
                 optimizer.zero_grad()
@@ -415,7 +416,8 @@ def main():
                         }
                         targets.append(target)
                     output = model(X, targets=targets)
-                    logging.info(output)
+                    for key, value in output.items():
+                        logging.info(f"{key}: {value}")
                 else:           
                     Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
                     with torch.autocast(
