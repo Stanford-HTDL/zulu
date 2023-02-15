@@ -24,14 +24,6 @@ OBJECT_DETECTORS = {
     "fasterrcnn_resnet50_fpn_v2":models.detection.fasterrcnn_resnet50_fpn_v2
 }
 
-# BACKBONE_WEIGHTS = {
-#     "resnet18": models.ResNet18_Weights.DEFAULT,
-#     "resnet34": models.ResNet34_Weights.DEFAULT,
-#     "resnet50": models.ResNet50_Weights.DEFAULT,
-#     "resnet101": models.ResNet101_Weights.DEFAULT,
-#     "resnet152": models.ResNet152_Weights.DEFAULT  
-# }
-
 
 class Fire(nn.Module):
     def __init__(
@@ -63,6 +55,8 @@ class Fire(nn.Module):
 
 class SqueezeNet(nn.Module):
     __name__ = "SqueezeNet"
+
+    INCLUDES_BACKPROP = False    
 
     DEFAULT_NUM_CHANNLES: int = 4
     DEFAULT_NUM_CLASSES: int = 10
@@ -147,6 +141,8 @@ class SpectrumNet(SqueezeNet):
     """
     __name__ = "SpectrumNet"
 
+    INCLUDES_BACKPROP = False    
+
 
     def __init__(self) -> None:
         super().__init__()
@@ -189,6 +185,8 @@ class SpectrumNet(SqueezeNet):
 class ResNetConvLSTM(nn.Module):
     __name__ = "ResNetConvLSTM"
 
+    INCLUDES_BACKPROP = False    
+
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
     DEFAULT_DROPOUT: float = 0.0
@@ -218,12 +216,8 @@ class ResNetConvLSTM(nn.Module):
         self.args = args 
 
         resnet = BACKBONES[backbone_name](pretrained=True)
-
         resnet_fc_in_features: int  = resnet.fc.in_features
-
         resnet.fc = nn.Sequential()
-        # resnet.fc = nn.Sequential(nn.Linear(resnet_fc_in_features, 300))
-
         self.resnet = resnet
 
         if freeze_backbone_params:
@@ -232,11 +226,7 @@ class ResNetConvLSTM(nn.Module):
         self.lstm = nn.LSTM(
             input_size=resnet_fc_in_features, hidden_size=lstm_hidden_size, 
             num_layers=num_layers, dropout=lstm_dropout
-        )
-        # self.lstm = nn.LSTM(
-        #     input_size=300, hidden_size=lstm_hidden_size, 
-        #     num_layers=num_layers, dropout=lstm_dropout
-        # )           
+        )          
         self.fc1 = nn.Linear(lstm_hidden_size, fc1_out)
         self.dropout = nn.Dropout(p=dropout)
         self.fc2 = nn.Linear(fc1_out, num_classes)
@@ -309,6 +299,8 @@ class ResNetConvLSTM(nn.Module):
 class ResNet(nn.Module):
     __name__ = "ResNet"
 
+    INCLUDES_BACKPROP = False
+
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
     DEFAULT_DROPOUT: float = 0.0
@@ -370,48 +362,18 @@ class ResNet(nn.Module):
             "--backbone",
             default=self.DEFAULT_BACKBONE_NAME
         )
-        # parser.add_argument(
-        #     "--conv-out-channels",
-        #     default=self.DEFAULT_CONV_OUT_CHANNELS,
-        #     type=int
-        # )
-        # parser.add_argument(
-        #     "--kernel-size",
-        #     default=self.DEFAULT_KERNEL_SIZE,
-        #     type=int
-        # )
         parser.add_argument(
             "--fc1-out",
             default=self.DEFAULT_FC1_OUT,
             type=int
         )
-        # parser.add_argument(
-        #     "--stride",
-        #     default=self.DEFAULT_STRIDE,
-        #     type=int
-        # )
-        # parser.add_argument(
-        #     "--sequence-length",
-        #     type=int,
-        #     required=True
-        # )
         args = parse_args(parser=parser)
         return args
 
        
     def forward(self, x):
-        # features = list()
-        # for t in range(x_3d.size(1)):
         with torch.no_grad():
             x: torch.Tensor = self.resnet(x)
-        #     x = x.unsqueeze(-1)
-        #     features.append(x)
-
-        # x = torch.concat(features, dim=-1)
-
-        # x = self.conv1d(x)
-        # x = self.maxpool(x)
-        # x = x.squeeze(-1)
 
         x = F.relu(x)
         x = self.dropout(x)
@@ -426,6 +388,8 @@ class ResNet(nn.Module):
 
 class ResNetOneDConv(nn.Module):
     __name__ = "ResNetOneDConv"
+
+    INCLUDES_BACKPROP = False    
 
     DEFAULT_NUM_CHANNLES: int = 3
     DEFAULT_NUM_CLASSES: int = 2
@@ -561,6 +525,8 @@ class ResNetOneDConv(nn.Module):
 class FasterRCNNV2(nn.Module):
     __name__ = "FasterRCNNV2"
 
+    INCLUDES_BACKPROP = True
+
     DEFAULT_NUM_CHANNLES = 3
     DEFAULT_NUM_CLASSES = 2
     DEFAULT_TRAINABLE_LAYERS = 3
@@ -604,5 +570,5 @@ class FasterRCNNV2(nn.Module):
         return args
 
     
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, *args, **kwargs):
+        return self.model(*args, **kwargs)

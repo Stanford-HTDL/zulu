@@ -355,6 +355,7 @@ def main():
         train_loss = 0.0
         for batch in train_loader:
             X, Y = batch["X"], batch["Y"] # A constraint on the Dataset class
+            print(Y)
             X_num_channels = X.shape[channel_axis]
             assert X_num_channels == model_num_channels, \
                 f"Network has been defined with {model_num_channels}" \
@@ -364,16 +365,29 @@ def main():
             # logging.info(f"X size: {X.shape}")
             # logging.info(f"Y size: {Y.shape}")
             X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
-            Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
-            optimizer.zero_grad()
-            with torch.autocast(
-                device.type if device.type != "mps" else "cpu", enabled=use_mp 
-            ):
-                Y_hat = model(X)
-                loss = criterion(Y_hat, Y)
-            train_loss += loss.item()
-            loss.backward()
-            optimizer.step()
+            if model.INCLUDES_BACKPROP:
+                targets = list()
+                for i in range(len(Y[0]["image_id"])):
+                    target = {
+                        "boxes": Y[0]["boxes"][i],
+                        "labels": Y[0]["labels"][i],
+                        "image_id": Y[0]["image_id"][i],
+                        "area": Y[0]["area"][i]
+                    }
+                    targets.append(target)
+                output = model(X, targets)
+                logging.info(output)
+            else:
+                Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
+                optimizer.zero_grad()
+                with torch.autocast(
+                    device.type if device.type != "mps" else "cpu", enabled=use_mp 
+                ):
+                    Y_hat = model(X)
+                    loss = criterion(Y_hat, Y)
+                train_loss += loss.item()
+                loss.backward()
+                optimizer.step()
 
         logging.info(
             f"""
@@ -395,37 +409,50 @@ def main():
                     "channels. Please check that the images are loaded correctly."
                 
                 X = X.to(device=device, dtype=torch.float32) # A constraint on the Dataset class
-                Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
-                with torch.autocast(
-                    device.type if device.type != "mps" else "cpu", enabled=use_mp 
-                ):
-                    with torch.no_grad():
-                        Y_hat = model(X)
-                    loss = criterion(Y_hat, Y)
-                validation_loss += loss.item()
+                if model.INCLUDES_BACKPROP:
+                    targets = list()
+                    for i in range(len(Y[0]["image_id"])):
+                        target = {
+                            "boxes": Y[0]["boxes"][i],
+                            "labels": Y[0]["labels"][i],
+                            "image_id": Y[0]["image_id"][i],
+                            "area": Y[0]["area"][i]
+                        }
+                        targets.append(target)
+                    output = model(X, targets)
+                    logging.info(output)
+                else:           
+                    Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
+                    with torch.autocast(
+                        device.type if device.type != "mps" else "cpu", enabled=use_mp 
+                    ):
+                        with torch.no_grad():
+                            Y_hat = model(X)
+                        loss = criterion(Y_hat, Y)
+                    validation_loss += loss.item()
 
-                Y = Y.cpu()
-                Y_hat = Y_hat.cpu()
+                    Y = Y.cpu()
+                    Y_hat = Y_hat.cpu()
 
 
-                metrics: dict = calc_metrics(Y, Y_hat, beta=F_beta)
-                metrics["validation_loss"] = validation_loss
-                if print_metrics:
-                    for key, value in metrics.items():
-                        logging.info(f"{key}: {value}")
+                    metrics: dict = calc_metrics(Y, Y_hat, beta=F_beta)
+                    metrics["validation_loss"] = validation_loss
+                    if print_metrics:
+                        for key, value in metrics.items():
+                            logging.info(f"{key}: {value}")
 
-                if print_val_preds:
-                    logging.info(
-                        f"""
-                        Validation batch:
+                    if print_val_preds:
+                        logging.info(
+                            f"""
+                            Validation batch:
 
-                        Target:
-                            {Y.unsqueeze(-1)}
+                            Target:
+                                {Y.unsqueeze(-1)}
 
-                        Predictions:
-                            {Y_hat}
-                        """
-                    )
+                            Predictions:
+                                {Y_hat}
+                            """
+                        )
 
         if use_scheduler:
             if scheduler.requires_metrics:

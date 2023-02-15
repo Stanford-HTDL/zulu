@@ -606,5 +606,5 @@ class XYZObjectDetectionDataset(Dataset):
 
         return {
             'X': image,
-            'Y': target,
+            'Y': [target],
         }           
