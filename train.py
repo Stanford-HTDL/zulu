@@ -449,7 +449,7 @@ def main():
                             """
                         )
 
-        if use_scheduler:
+        if not model.INCLUDES_BACKPROP and use_scheduler:
             if scheduler.requires_metrics:
                 scheduler.step(metrics[scheduler_metric])
             else:
