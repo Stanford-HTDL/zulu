@@ -581,7 +581,7 @@ class XYZObjectDetectionDataset(Dataset):
         
         target = dict()
         target["boxes"] = boxes.unsqueeze(0)
-        target["labels"] = labels.unsqueeze(0)
+        target["labels"] = labels
         target["image_id"] = [index]
         target["area"] = area
         return target
