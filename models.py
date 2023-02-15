@@ -24,7 +24,7 @@ try:
     OBJECT_DETECTORS = {
         "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2
     }
-except ImportError or AttributeError:
+except:
     # Cheeky little quick-fix
     OBJECT_DETECTORS = {
         "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn
