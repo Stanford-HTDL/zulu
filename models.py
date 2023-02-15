@@ -20,24 +20,16 @@ BACKBONES = {
     "resnet152": models.resnet152
 }
 
-BACKBONE_WEIGHTS = {
-    "resnet18": models.ResNet18_Weights,
-    "resnet34": models.ResNet34_Weights,
-    "resnet50": models.ResNet50_Weights,
-    "resnet101": models.ResNet101_Weights,
-    "resnet152": models.ResNet152_Weights    
-}
-
-try:
-    OBJECT_DETECTORS = {
-        "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2,
-        "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn
-    }
-except:
-    # Cheeky little quick-fix
-    OBJECT_DETECTORS = {
-        "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn,
-    }
+# try:
+#     OBJECT_DETECTORS = {
+#         "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2,
+#         "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn
+#     }
+# except:
+#     # Cheeky little quick-fix
+#     OBJECT_DETECTORS = {
+#         "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn,
+#     }
 
 class Fire(nn.Module):
     def __init__(
@@ -544,8 +536,10 @@ class FasterRCNN(nn.Module):
 
     DEFAULT_NUM_CHANNLES = 3
     DEFAULT_NUM_CLASSES = 2
-    DEFAULT_TRAINABLE_LAYERS = 3
-    DEFAULT_BACKBONE_NAME: str = "resnet152"
+    DEFAULT_TRAINABLE_LAYERS = None
+    DEFAULT_PRETRAINED = False
+    DEFAULT_PROGRESS = False 
+    DEFAULT_PRETRAINED_BACKBONE = True 
 
 
     def __init__(self, **kwargs):
@@ -556,13 +550,15 @@ class FasterRCNN(nn.Module):
         
         num_classes = int(args["num_classes"])
         trainable_layers = int(args["trainable_layers"])
-        backbone_name: str = args["backbone"]        
-        backbone_weights = BACKBONE_WEIGHTS[backbone_name]
+        pretrained: bool = arg_is_true(args["pretrained"])
+        progress: bool = arg_is_true(args["progress"])
+        pretrained_backbone: bool = arg_is_true(args["pretrained_backbone"])
         self.args = {**args, **kwargs}
 
-        model =  OBJECT_DETECTORS[self.MODEL_NAME](
-            num_classes=num_classes, trainable_backbone_layers=trainable_layers, 
-            backbone_weights=backbone_weights, **kwargs
+        model = models.detection.fasterrcnn_resnet50_fpn(
+            pretrained=pretrained, progress=progress, num_classes=num_classes, 
+            pretrained_backbone=pretrained_backbone, 
+            trainable_backbone_layers=trainable_layers, **kwargs
         )
         self.model = model
 
@@ -585,9 +581,17 @@ class FasterRCNN(nn.Module):
             type=int
         )
         parser.add_argument(
-            "--backbone",
-            default=self.DEFAULT_BACKBONE_NAME
-        )        
+            "--pretrained",
+            default=self.DEFAULT_PRETRAINED
+        )
+        parser.add_argument(
+            "--progress",
+            default=self.DEFAULT_PROGRESS
+        )
+        parser.add_argument(
+            "--pretrained-backbone",
+            default=self.DEFAULT_PRETRAINED_BACKBONE
+        )     
         args = parse_args(parser=parser)
         return args
 
