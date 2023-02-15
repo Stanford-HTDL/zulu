@@ -548,7 +548,7 @@ class FasterRCNNV2(nn.Module):
         trainable_layers = int(args["trainable_layers"])
         self.args = {**args, **kwargs}
 
-        model =  OBJECT_DETECTORS[MODEL_NAME](
+        model =  OBJECT_DETECTORS[self.MODEL_NAME](
             num_classes=num_classes, trainable_backbone_layers=trainable_layers, 
             **kwargs
         )
