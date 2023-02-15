@@ -527,8 +527,8 @@ class ResNetOneDConv(nn.Module):
         return x
 
 
-class FasterRCNNV2(nn.Module):
-    __name__ = "FasterRCNNV2"
+class FasterRCNN(nn.Module):
+    __name__ = "FasterRCNN"
 
     INCLUDES_BACKPROP = True
     MODEL_NAME = "fasterrcnn_resnet50_fpn_v2"

@@ -580,9 +580,9 @@ class XYZObjectDetectionDataset(Dataset):
         labels = torch.ones(1, dtype=torch.int64)
         
         target = dict()
-        target["boxes"] = torch.tensor(boxes).unsqueeze(0)
-        target["labels"] = torch.tensor(labels).unsqueeze(0)
-        target["image_id"] = torch.tensor([index]).unsqueeze(0)
+        target["boxes"] = boxes.unsqueeze(0)
+        target["labels"] = labels.unsqueeze(0)
+        target["image_id"] = [index]
         target["area"] = area
         return target
 

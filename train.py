@@ -12,7 +12,7 @@ import torch
 from datasets import (ConvLSTMCDataset, EurosatDataset,
                       XYZObjectDetectionDataset, XYZTileDataset)
 from metrics import calc_metrics
-from models import (FasterRCNNV2, ResNet, ResNetConvLSTM, ResNetOneDConv,
+from models import (FasterRCNN, ResNet, ResNetConvLSTM, ResNetOneDConv,
                     SpectrumNet, SqueezeNet)
 from optimizers import SGD, Adam
 from schedulers import ReduceLROnPlateau, StepLR
@@ -56,7 +56,7 @@ MODELS = {
     SpectrumNet.__name__: SpectrumNet,
     ResNetConvLSTM.__name__: ResNetConvLSTM,
     ResNetOneDConv.__name__: ResNetOneDConv,
-    FasterRCNNV2.__name__: FasterRCNNV2
+    FasterRCNN.__name__: FasterRCNN
 }
 
 DATASETS = {
@@ -370,11 +370,9 @@ def main():
                     target = {
                         "boxes": Y[0]["boxes"][i].to(device=device),
                         "labels": Y[0]["labels"][i].to(device=device),
-                        "image_id": Y[0]["image_id"][i],
-                        "area": Y[0]["area"][i]
                     }
                     targets.append(target)
-                output = model(X, targets)
+                output = model(X, targets=targets)
                 logging.info(output)
             else:
                 Y = Y.to(device=device, dtype=torch.long) # A constraint on the Dataset class
