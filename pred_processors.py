@@ -761,11 +761,14 @@ class ObjectDetectorProcessor(ResNetProcessor):
                 writer = csv.writer(f)
                 writer.writerow(results_list)
 
+        zxy_str = f"{z}_{x}_{y}"
         # Save bounding boxes as geojson files
         if self.save_geojson:
+            bbox_save_dir = os.path.join(self.bbox_geojson_dir, zxy_str).replace("\\", "/")
+            os.makedirs(bbox_save_dir, exist_ok=True)
             for i, bbox in enumerate(result["boxes"]):
                 bbox_geojson: dict = bbox_to_geojson(bbox, lng_lat_bbox, self.INPUT_SIZE)
-                bbox_savepath: str = os.path.join(self.bbox_geojson_dir, f"bbox_{i+1}.geojson").replace("\\", "/")
+                bbox_savepath: str = os.path.join(bbox_save_dir, f"bbox_{i+1}.geojson").replace("\\", "/")
                 with open(bbox_savepath, "w") as f:
                     json.dump(bbox_geojson, f)
             
