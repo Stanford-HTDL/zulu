@@ -9,15 +9,17 @@ import json
 import logging
 import os
 from collections import OrderedDict
-from typing import Dict, Generator, List, Optional
+from typing import Generator, List, Optional
 
 import aiohttp
+import pandas as pd
 import torch
 import torchvision.transforms as T
 from light_pipe import AsyncGatherer, Data, Parallelizer, Transformer
 from PIL import Image, ImageDraw
 
 import mercantile
+from detection import bbox_to_geojson
 from script_utils import (arg_is_true, async_tuple_to_args, parse_args,
                           tuple_to_args)
 
@@ -192,11 +194,22 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     __name__ = "ConvLSTMCProcessor"
 
     DEFAULT_PRED_MANIFEST: str = "conv_lstm_c_preds.csv"
+    DEFAULT_GEOJSON_DIR: str = "pred_bbox_geojson/"
     DEFAULT_SAVE_MANIFEST: bool = False
+    DEFAULT_SAVE_GEOJSON: bool = False    
     DEFAULT_FROM_LOCAL_FILES: bool = True
 
+    DEFAULT_FROM_PREDS_CSV: bool = False
+    DEFAULT_PREDS_CSV_PATH: str = DEFAULT_PRED_MANIFEST    
+    DEFAULT_FILTER_BY_TARGET_VALUE: bool = True
+    DEFAULT_TARGET_VALUE: int = 1
+    DEFAULT_TARGET_COLUMN_NAME: str = "Predicted Class"
+    DEFAULT_COORDINATE_COLUMN_NAMES: List[str] = ["Z", "X", "Y"]
+
+    NUM_TILES_PER_SUBLIST = 128
+    INPUT_SIZE = (224,224)
     TRANSORMS = T.Compose([
-        T.Resize((224,224)),
+        T.Resize(INPUT_SIZE),
         # T.CenterCrop((224,224)),
         T.ToTensor(),
         T.Normalize(
@@ -214,15 +227,23 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     DEFAULT_MAKE_GIFS = True
 
     LOCAL_PRED_CSV_HEADER = ["Directory", "Positive", "Negative", "Predicted Class"]
+    # PAPI_PRED_CSV_HEADER = [
+    #     "Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Positive", "Negative", "Predicted Class"
+    # ]
     PAPI_PRED_CSV_HEADER = [
-        "Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Positive", "Negative", "Predicted Class"
-    ]
+        "Z", "X", "Y", "West", "South", "East", "North", "Geojson Name", "Positive", "Negative", "Predicted Class"
+    ]    
 
 
     def __init__(self, save_dir: str):
         args = self.parse_args()
         save_manifest: bool = arg_is_true(args["save_manifest"])
         from_local_files = arg_is_true(args["from_local_files"])
+        save_geojson: bool = arg_is_true(args["save_geojson"])
+        if save_geojson:
+            bbox_geojson_dir = args["bbox_geojson_dir"]
+            self.bbox_geojson_dir = os.path.join(save_dir, bbox_geojson_dir).replace("\\", "/")
+            self.save_geojson = save_geojson
         if save_manifest:
             pred_manifest: str = args["pred_manifest"]
             pred_manifest_path: str = os.path.join(save_dir, pred_manifest).replace("\\", "/")
@@ -249,9 +270,16 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self.duration = args["duration"]
         self.fc_index = args["fc_index"]
 
+        self.from_preds_csv = arg_is_true[args["from_preds_csv"]]
+        self.preds_csv_path = args["preds_csv_path"]
+        self.filter_by_target_value = arg_is_true[args["filter_by_target_value"]]
+        self.target_value = int(args["target_value"])
+        self.target_column_name = args["target_column_name"]
+        self.coordinate_column_names = args["coordinate_column_names"]
+
         self.embed_date = arg_is_true(args["embed_date"])
         self.save_images = arg_is_true(args["save_images"])
-        self.make_gifs = arg_is_true(args["make_gifs"]        )
+        self.make_gifs = arg_is_true(args["make_gifs"])
 
 
     def parse_args(self):
@@ -261,8 +289,16 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             default=self.DEFAULT_PRED_MANIFEST
         )
         parser.add_argument(
+            "--bbox-geojson-dir",
+            default=self.DEFAULT_GEOJSON_DIR
+        )
+        parser.add_argument(
             "--save-manifest",
             default=self.DEFAULT_SAVE_MANIFEST
+        )
+        parser.add_argument(
+            "--save-geojson",
+            default=self.DEFAULT_SAVE_GEOJSON
         )
         parser.add_argument(
             "--from-local-files",
@@ -305,9 +341,36 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         parser.add_argument(
             "--make-gifs",
             default=self.DEFAULT_MAKE_GIFS,
+        )    
+        parser.add_argument(
+            "--from-preds-csv",
+            default=self.DEFAULT_FROM_PREDS_CSV
+        )
+        parser.add_argument(
+            "--preds-csv-path",
+            default=self.DEFAULT_PREDS_CSV_PATH
         )        
+        parser.add_argument(
+            "--filter-by-target-value",
+            default=self.DEFAULT_FILTER_BY_TARGET_VALUE
+        )
+        parser.add_argument(
+            "--target-value",
+            default=self.DEFAULT_TARGET_VALUE,
+            type=int
+        )
+        parser.add_argument(
+            "--target-column-name",
+            default=self.DEFAULT_TARGET_COLUMN_NAME
+        )
+        parser.add_argument(
+            "--coordinate-column-names",
+            default=self.DEFAULT_COORDINATE_COLUMN_NAMES,
+            nargs="+",
+            type=str
+        )
         args = parse_args(parser=parser)
-        return args
+        return args                    
 
 
     def _save_pil_images(
@@ -359,6 +422,84 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             'Y': None,
             "args": args
         }
+
+
+    @staticmethod
+    def _get_tiles_from_preds_csv_path(
+        preds_csv_path: str,
+        filter_by_target_value: Optional[bool] = False,
+        target_column_name: Optional[str] = "Predicted Class", 
+        target_value: Optional[int] = 1,
+        coordinate_column_names: Optional[List[str]] = ["Z", "X", "Y"]
+    ):
+        df = pd.read_csv(preds_csv_path)
+        if filter_by_target_value and target_column_name is not None:
+            tile_coordinates = df[df[target_column_name] == target_value][coordinate_column_names]
+        else:
+            tile_coordinates = df[coordinate_column_names]
+        for tile_coords in tile_coordinates.values:
+            z = tile_coords[0]
+            x = tile_coords[1]
+            y = tile_coords[2]
+            tile = mercantile.Tile(x=x, y=y, z=z)
+            yield tile        
+
+
+    def _make_samples_from_preds_csv_path(
+        self, preds_csv_path: str, start: str, end: str, zooms: List[int], 
+        false_color_index: Optional[str] = None, truncate: Optional[bool] = True, 
+        num_tiles_per_sublist: Optional[int] = 128,
+        filter_by_target_value: Optional[bool] = False,
+        target_column_name: Optional[str] = "Predicted Class", 
+        target_value: Optional[int] = 1,
+        coordinate_column_names: Optional[List[str]] = ["Z", "X", "Y"],        
+        image_parallelizer: Optional[Parallelizer] = Parallelizer(),
+        parallelizer: Optional[Parallelizer] = Parallelizer()
+    ):
+
+        # def yield_tiles(tiles: List[mercantile.Tile]) -> Generator:
+        #     yield tiles
+
+
+        data: Data = Data(
+            self._get_tiles_from_preds_csv_path, preds_csv_path=preds_csv_path,
+            filter_by_target_value=filter_by_target_value, 
+            target_value=target_value, target_column_name=target_column_name,
+            target_value=target_value, coordinate_column_names=coordinate_column_names
+        )
+
+        data >> Transformer(tuple_to_args(self.get_filepaths), as_list=False) \
+             >> Transformer(self._open_geojson) \
+             >> Transformer(tuple_to_args(self._get_tiles), zooms=zooms, truncate=truncate)
+
+        tiles: List[mercantile.Tile] = data(block=True)
+        tiles = list(set(tiles)) # Remove duplicates
+        
+        # Chunk tiles to prevent order bottlenecks
+        tiles = [
+            tiles[i:i + num_tiles_per_sublist] for i in range(0, len(tiles), num_tiles_per_sublist)
+        ]
+        # tiles = [tiles]
+
+        data = Data(tiles)
+
+        data >> Transformer(
+                tuple_to_args(self.get_planet_monthly_time_series_as_PIL_Images),
+                start=start, end=end, false_color_index=false_color_index, 
+                image_parallelizer=image_parallelizer, parallelizer=parallelizer
+             )
+
+        if self.save_images or self.make_gifs:
+            data >> Transformer(
+                tuple_to_args(self._save_pil_images), save_dir=self.save_dir,
+                start=start, end=end, duration=self.duration, 
+                make_gifs=self.make_gifs, save_images=self.save_images,
+                embed_date=self.embed_date, parallelizer=parallelizer
+            )
+
+        data >> Transformer(tuple_to_args(self.make_sample), parallelizer=parallelizer)
+
+        yield from data           
 
 
     def _make_samples_from_planet_api(
@@ -438,11 +579,24 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             yield from self._make_samples_from_local_files(
                 dir_path=dir_path, parallelizer=parallelizer, **kwargs
             )
+        elif self.from_preds_csv:
+            yield from self._make_samples_from_preds_csv_path(
+                preds_csv_path=self.preds_csv_path, start=self.start, end=self.end, 
+                zooms=self.zooms, false_color_index=self.fc_index, 
+                parallelizer=parallelizer, 
+                num_tiles_per_sublist=self.NUM_TILES_PER_SUBLIST, 
+                filter_by_target_value=self.filter_by_target_value,
+                target_column_name=self.target_column_name, 
+                target_value=self.target_value,
+                coordinate_column_names=self.coordinate_column_names,                 
+                **kwargs                
+            )
         else:
             yield from self._make_samples_from_planet_api(
                 geojson_dir_path=dir_path, start=self.start, end=self.end, 
                 zooms=self.zooms, false_color_index=self.fc_index, 
-                parallelizer=parallelizer, **kwargs
+                parallelizer=parallelizer, 
+                num_tiles_per_sublist=self.NUM_TILES_PER_SUBLIST, **kwargs
             )
 
 
@@ -476,9 +630,15 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         geojson_name: str = input["args"][3]
 
         tile: mercantile.Tile = mercantile.Tile(x=x, y=y, z=z)
-        ul: mercantile.LngLat = mercantile.ul(tile)
-        lng = ul.lng
-        lat = ul.lat
+        # ul: mercantile.LngLat = mercantile.ul(tile)
+        # lng = ul.lng
+        # lat = ul.lat
+        lng_lat_bbox: mercantile.LngLatBbox = mercantile.bounds(tile)
+        west: float = lng_lat_bbox.west
+        south: float = lng_lat_bbox.south
+        east: float = lng_lat_bbox.east
+        north: float = lng_lat_bbox.north
+
 
         result: dict = {
             "Negative": float(output[0, 0]),
@@ -494,7 +654,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
                     Negative: {result["Negative"]}
             """
         )
-        results_list: list = [z, x, y, lng, lat, geojson_name, result["Positive"], result["Negative"], predicted_class]
+        results_list: list = [z, x, y, west, south, east, north, geojson_name, result["Positive"], result["Negative"], predicted_class]
         if self.save_manifest:
             with open(self.pred_manifest_path, "a", newline="") as f:
                 writer = csv.writer(f)
@@ -529,29 +689,6 @@ class ResNetProcessor(ConvLSTMCProcessor):
             }
 
 
-    # def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
-    #     filepaths: List[str] = input["args"][0]
-    #     filepath: str = filepaths[0].replace("\\", "/")
-    #     result: dict = {
-    #         "Negative": float(output[0, 0]),
-    #         "Positive": float(output[0, 1])
-    #     }
-    #     predicted_class = int(torch.argmax(output[0]))
-
-    #     logging.info(
-    #         f"""
-    #                 Filepath: {filepath}
-    #                 Positive: {result["Positive"]}
-    #                 Negative: {result["Negative"]}
-    #         """
-    #     )
-    #     results_list: list = [filepath, result["Positive"], result["Negative"], predicted_class]
-    #     if self.save_manifest:
-    #         with open(self.pred_manifest_path, "a", newline="") as f:
-    #             writer = csv.writer(f)
-    #             writer.writerow(results_list)
-
-
 class ObjectDetectorProcessor(ResNetProcessor):
     __name__ = "ObjectDetectorProcessor"
 
@@ -565,10 +702,7 @@ class ObjectDetectorProcessor(ResNetProcessor):
     def make_result(output: dict) -> dict:
         result = dict()
         for key, value in output.items():
-            result[key] = value.detach().cpu().numpy().tolist()
-        # result["boxes"] = output["boxes"].detach().cpu().numpy().tolist()
-        # result["labels"] = output["labels"].detach().cpu().numpy().tolist()
-        # result["scores"] = output["scores"].detach().cpu().numpy().tolist()        
+            result[key] = value.detach().cpu().numpy().tolist()        
         return result
 
 
@@ -599,9 +733,14 @@ class ObjectDetectorProcessor(ResNetProcessor):
         geojson_name: str = input["args"][3]
 
         tile: mercantile.Tile = mercantile.Tile(x=x, y=y, z=z)
-        ul: mercantile.LngLat = mercantile.ul(tile)
-        lng = ul.lng
-        lat = ul.lat
+        # ul: mercantile.LngLat = mercantile.ul(tile)
+        # lng = ul.lng
+        # lat = ul.lat
+        lng_lat_bbox: mercantile.LngLatBbox = mercantile.bounds(tile)
+        west: float = lng_lat_bbox.west
+        south: float = lng_lat_bbox.south
+        east: float = lng_lat_bbox.east
+        north: float = lng_lat_bbox.north      
 
         result: dict = self.make_result(output[0]) # One image at a time
 
@@ -614,8 +753,17 @@ class ObjectDetectorProcessor(ResNetProcessor):
                     Scores: {result["scores"]}
             """
         )
-        results_list: list = [z, x, y, lng, lat, geojson_name, result["boxes"], result["labels"], result["scores"]]
+        results_list: list = [z, x, y, west, south, east, north, geojson_name, result["boxes"], result["labels"], result["scores"]]
         if self.save_manifest:
             with open(self.pred_manifest_path, "a", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(results_list)    
+                writer.writerow(results_list)
+
+        # Save bounding boxes as geojson files
+        if self.save_geojson:
+            for i, bbox in enumerate(result["boxes"]):
+                bbox_geojson: dict = bbox_to_geojson(bbox, lng_lat_bbox, self.INPUT_SIZE)
+                bbox_savepath: str = os.path.join(self.bbox_geojson_dir, f"bbox_{i+1}.geojson").replace("\\", "/")
+                with open(bbox_savepath, "w") as f:
+                    json.dump(bbox_geojson, f)
+            

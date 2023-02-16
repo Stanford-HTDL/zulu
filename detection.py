@@ -7,11 +7,113 @@ Adapted from: https://github.com/rcorrero/poisson
 
 import math
 import sys
+from typing import Sequence
 
 import numpy as np
 import torch
 import torchvision
 from torch.autograd import Variable
+
+import mercantile
+
+
+def feature(
+    bbox: mercantile.LngLatBbox, fid=None, props=None, 
+    projected="geographic", buffer=None, precision=None, id="Bounding Box"
+):
+    """Get the GeoJSON feature corresponding to a tile
+
+    Parameters
+    ----------
+    bbox : LngLatBbox
+    fid : str, optional
+        A feature id.
+    props : dict, optional
+        Optional extra feature properties.
+    projected : str, optional
+        Non-standard web mercator GeoJSON can be created by passing
+        'mercator'.
+    buffer : float, optional
+        Optional buffer distance for the GeoJSON polygon.
+    precision : int, optional
+        GeoJSON coordinates will be truncated to this number of decimal
+        places.
+    id : str, optional
+        Name associated with geojson object.
+
+    Returns
+    -------
+    dict
+
+    """
+    west, south, east, north = bbox
+
+    if projected == "mercator":
+        west, south = mercantile.xy(west, south, truncate=False)
+        east, north = mercantile.xy(east, north, truncate=False)
+
+    if buffer:
+        west -= buffer
+        south -= buffer
+        east += buffer
+        north += buffer
+
+    if precision and precision >= 0:
+        west, south, east, north = (
+            round(v, precision) for v in (west, south, east, north)
+        )
+
+    bbox = [min(west, east), min(south, north), max(west, east), max(south, north)]
+    geom = {
+        "type": "Polygon",
+        "coordinates": [
+            [[west, south], [west, north], [east, north], [east, south], [west, south]]
+        ],
+    }
+
+    feat = {
+        "type": "Feature",
+        "bbox": bbox,
+        "id": id,
+        "geometry": geom,
+        # "properties": {"title": "XYZ tile %s" % xyz},
+    }
+
+    if props:
+        feat["properties"].update(props)
+
+    if fid is not None:
+        feat["id"] = fid
+
+    return feat
+
+
+def bbox_to_geojson(
+    bbox: Sequence[float], lng_lat_bbox: mercantile.LngLatBbox, 
+    image_shape: Sequence[int]
+) -> dict:
+        y_num_pixels, x_num_pixels = image_shape # (H, W)
+        west: float = lng_lat_bbox.west
+        south: float = lng_lat_bbox.south
+        east: float = lng_lat_bbox.east
+        north: float = lng_lat_bbox.north
+
+        lng_len: float = (east - west) % 360.0
+        lat_len: float = (north - south) % 180
+
+        x_min, y_min, x_max, y_max = bbox
+
+        bbox_west: float = west + int(x_min / x_num_pixels) * lng_len
+        bbox_south: float = north  - int(y_max / y_num_pixels) * lat_len
+        bbox_east: float = west + int(x_max / x_num_pixels) * lng_len
+        bbox_north: float = north  - int(y_min / y_num_pixels) * lat_len
+
+        bbox_ll: mercantile.LngLatBbox = mercantile.LngLatBbox(
+            west=bbox_west, south=bbox_south, east=bbox_east, north=bbox_north
+        )
+
+        geojson = feature(bbox_ll)
+        return geojson
 
 
 def collate_fn(batch):

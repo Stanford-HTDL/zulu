@@ -7,7 +7,7 @@ import json
 import math
 import os
 import random
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -157,6 +157,7 @@ class XYZTileDataset(Dataset):
     DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
     MAX_ANGLE: int = 30
+    INPUT_SIZE: Tuple[int, int] = (224, 224)
 
 
     def __init__(self):
@@ -195,7 +196,7 @@ class XYZTileDataset(Dataset):
         self.class_weights = class_weights
 
         self.transforms = T.Compose([
-            T.Resize((224,224)),
+            T.Resize(self.INPUT_SIZE),
             # T.CenterCrop((224,224)),
             T.ToTensor(),
             T.Normalize(
@@ -306,6 +307,7 @@ class ConvLSTMCDataset(Dataset):
     DEFAULT_USE_ROTATION: bool = False
     DEFAULT_USE_SQRT_WEIGHTS: bool = False
     MAX_ANGLE: int = 30
+    INPUT_SIZE: Tuple[int, int] = (224,224)
 
 
     def __init__(self):
@@ -343,7 +345,7 @@ class ConvLSTMCDataset(Dataset):
         self.class_weights = class_weights
 
         self.transforms = T.Compose([
-            T.Resize((224,224)),
+            T.Resize(self.INPUT_SIZE),
             # T.CenterCrop((224,224)),
             T.ToTensor(),
             T.Normalize(
@@ -451,16 +453,7 @@ class ConvLSTMCDataset(Dataset):
         return {
             'X': image_arrays,
             'Y': target,
-        }           
-
-
-# @TODO: IMPLEMENT
-class ConvLSTMODDataset(ConvLSTMCDataset):
-    __name__ = "ConvLSTMODDataset"
-
-
-    def __init__(self, data_manifest_path: str):
-        raise NotImplementedError("This class is not implemented yet.")
+        }
 
 
 class XYZObjectDetectionDataset(Dataset):
@@ -469,6 +462,7 @@ class XYZObjectDetectionDataset(Dataset):
     DEFAULT_DATA_MANIFEST: str = "sios_annotations_manifest.json"
     DEFAULT_ANNOTATIONS: str = "sios_annotations.json"
     DEFAULT_POS_ONLY: bool = True
+    INPUT_SIZE: Tuple[int, int] = (224,224)
 
 
     def __init__(self):
@@ -510,7 +504,7 @@ class XYZObjectDetectionDataset(Dataset):
                                     samples.append(sample_dict)
 
         self.transforms = T.Compose([
-            T.Resize((224,224)),
+            T.Resize(self.INPUT_SIZE),
             # T.CenterCrop((224,224)),
             T.ToTensor(),
             T.Normalize(
@@ -608,4 +602,13 @@ class XYZObjectDetectionDataset(Dataset):
         # return {
         #     'X': image,
         #     'Y': [target],
-        # }           
+        # }
+
+
+# @TODO: IMPLEMENT
+class ConvLSTMODDataset(ConvLSTMCDataset):
+    __name__ = "ConvLSTMODDataset"
+
+
+    def __init__(self, data_manifest_path: str):
+        raise NotImplementedError("This class is not implemented yet.")        
