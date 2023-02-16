@@ -103,10 +103,10 @@ def bbox_to_geojson(
 
         x_min, y_min, x_max, y_max = bbox
 
-        bbox_west: float = west + int(x_min / x_num_pixels) * lng_len
-        bbox_south: float = north  - int(y_max / y_num_pixels) * lat_len
-        bbox_east: float = west + int(x_max / x_num_pixels) * lng_len
-        bbox_north: float = north  - int(y_min / y_num_pixels) * lat_len
+        bbox_west: float = west + (x_min / x_num_pixels) * lng_len
+        bbox_south: float = north  - (y_max / y_num_pixels) * lat_len
+        bbox_east: float = west + (x_max / x_num_pixels) * lng_len
+        bbox_north: float = north  - (y_min / y_num_pixels) * lat_len
 
         bbox_ll: mercantile.LngLatBbox = mercantile.LngLatBbox(
             west=bbox_west, south=bbox_south, east=bbox_east, north=bbox_north
