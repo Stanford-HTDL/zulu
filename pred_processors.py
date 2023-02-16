@@ -468,9 +468,9 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             coordinate_column_names=coordinate_column_names
         )
 
-        data >> Transformer(tuple_to_args(self.get_filepaths), as_list=False) \
-             >> Transformer(self._open_geojson) \
-             >> Transformer(tuple_to_args(self._get_tiles), zooms=zooms, truncate=truncate)
+        # data >> Transformer(tuple_to_args(self.get_filepaths), as_list=False) \
+        #      >> Transformer(self._open_geojson) \
+        #      >> Transformer(tuple_to_args(self._get_tiles), zooms=zooms, truncate=truncate)
 
         tiles: List[mercantile.Tile] = data(block=True)
         tiles = list(set(tiles)) # Remove duplicates
