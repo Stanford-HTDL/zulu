@@ -241,12 +241,12 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         save_manifest: bool = arg_is_true(args["save_manifest"])
         from_local_files = arg_is_true(args["from_local_files"])
         save_geojson: bool = arg_is_true(args["save_geojson"])
+        self.save_geojson = save_geojson
         if save_geojson:
             bbox_geojson_dir = args["bbox_geojson_dir"]
             bbox_geojson_dir = os.path.join(save_dir, bbox_geojson_dir).replace("\\", "/")
             os.makedirs(bbox_geojson_dir, exist_ok=True)
             self.bbox_geojson_dir = bbox_geojson_dir 
-            self.save_geojson = save_geojson
         if save_manifest:
             pred_manifest: str = args["pred_manifest"]
             pred_manifest_path: str = os.path.join(save_dir, pred_manifest).replace("\\", "/")

@@ -77,7 +77,6 @@ def parse_args():
     )
     parser.add_argument(
         "--data-dir",
-        required=True
     )       
     parser.add_argument(
         "--id"
