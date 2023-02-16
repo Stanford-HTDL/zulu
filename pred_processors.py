@@ -703,7 +703,7 @@ class ObjectDetectorProcessor(ResNetProcessor):
 
     LOCAL_PRED_CSV_HEADER = ["Directory", "Boxes", "Labels", "Scores"]
     PAPI_PRED_CSV_HEADER = [
-        "Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Boxes", "Labels", "Scores"
+        "Z", "X", "Y", "West", "South", "East", "North", "Geojson Name", "Boxes", "Labels", "Scores"
     ]
 
 
