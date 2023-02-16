@@ -9,9 +9,10 @@ import time
 
 import torch
 
-from models import (ResNet, ResNetConvLSTM, ResNetOneDConv, SpectrumNet,
-                    SqueezeNet)
-from pred_processors import ConvLSTMCProcessor, Processor, ResNetProcessor
+from models import (FasterRCNN, ResNet, ResNetConvLSTM, ResNetOneDConv,
+                    SpectrumNet, SqueezeNet)
+from pred_processors import (ConvLSTMCProcessor, ObjectDetectorProcessor,
+                             Processor, ResNetProcessor)
 from script_utils import get_args, get_random_string
 
 SCRIPT_PATH = os.path.basename(__file__)
@@ -31,12 +32,14 @@ MODELS = {
     SqueezeNet.__name__: SqueezeNet,
     SpectrumNet.__name__: SpectrumNet,
     ResNetConvLSTM.__name__: ResNetConvLSTM,
-    ResNetOneDConv.__name__: ResNetOneDConv
+    ResNetOneDConv.__name__: ResNetOneDConv,
+    FasterRCNN.__name__: FasterRCNN
 }
 
 PRED_PROCESSORS = {
     ConvLSTMCProcessor.__name__: ConvLSTMCProcessor,
-    ResNetProcessor.__name__: ResNetProcessor
+    ResNetProcessor.__name__: ResNetProcessor,
+    ObjectDetectorProcessor.__name__: ObjectDetectorProcessor
 }
 
 

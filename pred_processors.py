@@ -9,7 +9,7 @@ import json
 import logging
 import os
 from collections import OrderedDict
-from typing import Generator, List, Optional
+from typing import Dict, Generator, List, Optional
 
 import aiohttp
 import torch
@@ -501,7 +501,6 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
                 writer.writerow(results_list)
 
 
-
     def save_results(
         self, input: dict, output: torch.Tensor, from_local_files: Optional[bool] = None
     ) -> None:
@@ -527,4 +526,96 @@ class ResNetProcessor(ConvLSTMCProcessor):
                 'X': image,
                 'Y': None,
                 "args": args
-            }    
+            }
+
+
+    def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
+        filepaths: List[str] = input["args"][0]
+        filepath: str = filepaths[0].replace("\\", "/")
+        result: dict = {
+            "Negative": float(output[0, 0]),
+            "Positive": float(output[0, 1])
+        }
+        predicted_class = int(torch.argmax(output[0]))
+
+        logging.info(
+            f"""
+                    Filepath: {filepath}
+                    Positive: {result["Positive"]}
+                    Negative: {result["Negative"]}
+            """
+        )
+        results_list: list = [filepath, result["Positive"], result["Negative"], predicted_class]
+        if self.save_manifest:
+            with open(self.pred_manifest_path, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(results_list)
+
+
+class ObjectDetectorProcessor(ResNetProcessor):
+    __name__ = "ObjectDetectorProcessor"
+
+    LOCAL_PRED_CSV_HEADER = ["Directory", "Boxes", "Labels", "Scores"]
+    PAPI_PRED_CSV_HEADER = [
+        "Z", "X", "Y", "Longitude", "Latitude", "Geojson Name", "Boxes", "Labels", "Scores"
+    ]
+
+
+    @staticmethod
+    def make_result(output: Dict[torch.Tensor]) -> Dict[list]:
+        result = dict()
+        for key, value in output.items():
+            result[key] = value.detach().cpu().numpy().tolist()
+        # result["boxes"] = output["boxes"].detach().cpu().numpy().tolist()
+        # result["labels"] = output["labels"].detach().cpu().numpy().tolist()
+        # result["scores"] = output["scores"].detach().cpu().numpy().tolist()        
+        return result
+
+
+    def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
+        filepaths: List[str] = input["args"][0]
+        filepath: str = filepaths[0].replace("\\", "/")
+        result: dict = self.make_result(output[0]) # One image at a time
+
+        logging.info(
+            f"""
+                    Filepath: {filepath}
+                    Boxes: {result["boxes"]}
+                    Labels: {result["labels"]}
+                    Scores: {result["scores"]}
+            """
+        )
+        results_list: list = [filepath, result["boxes"], result["labels"], result["scores"]]
+        if self.save_manifest:
+            with open(self.pred_manifest_path, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(results_list)      
+
+
+    def _save_results_from_planet_api(self, input: dict, output: torch.Tensor) -> None:
+        z: int = input["args"][0]
+        x: int = input["args"][1]
+        y: int = input["args"][2]
+        geojson_name: str = input["args"][3]
+
+        tile: mercantile.Tile = mercantile.Tile(x=x, y=y, z=z)
+        ul: mercantile.LngLat = mercantile.ul(tile)
+        lng = ul.lng
+        lat = ul.lat
+
+        result: dict = self.make_result(output[0]) # One image at a time
+
+        logging.info(
+            f"""
+                    Z/X/Y: {z}/{x}/{y}
+                    Geojson Name: {geojson_name}
+                    Boxes: {result["boxes"]}
+                    Labels: {result["labels"]}
+                    Scores: {result["scores"]}
+            """
+        )
+        results_list: list = [z, x, y, lng, lat, geojson_name, result["boxes"], result["labels"], result["scores"]]
+        if self.save_manifest:
+            with open(self.pred_manifest_path, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(results_list)    
