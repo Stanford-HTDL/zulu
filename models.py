@@ -8,28 +8,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from torchvision import models
 
 from script_utils import arg_is_true, parse_args
+from model_loaders import BACKBONES, fasterrcnn_resnet_fpn
 
-BACKBONES = {
-    "resnet18": models.resnet18,
-    "resnet34": models.resnet34,
-    "resnet50": models.resnet50,
-    "resnet101": models.resnet101,
-    "resnet152": models.resnet152
-}
-
-# try:
-#     OBJECT_DETECTORS = {
-#         "fasterrcnn_resnet50_fpn_v2": models.detection.fasterrcnn_resnet50_fpn_v2,
-#         "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn
-#     }
-# except:
-#     # Cheeky little quick-fix
-#     OBJECT_DETECTORS = {
-#         "fasterrcnn_resnet50_fpn": models.detection.fasterrcnn_resnet50_fpn,
-#     }
+# BACKBONES = {
+#     "resnet18": models.resnet18,
+#     "resnet34": models.resnet34,
+#     "resnet50": models.resnet50,
+#     "resnet101": models.resnet101,
+#     "resnet152": models.resnet152
+# }
 
 class Fire(nn.Module):
     def __init__(
@@ -532,8 +521,9 @@ class FasterRCNN(nn.Module):
     __name__ = "FasterRCNN"
 
     IS_OBJECT_DETECTOR = True
-    MODEL_NAME = "fasterrcnn_resnet50_fpn"
+    # MODEL_NAME = "fasterrcnn_resnet_fpn"
 
+    DEFAULT_BACKBONE_NAME: str = "resnet50"
     DEFAULT_NUM_CHANNLES = 3
     DEFAULT_NUM_CLASSES = 2
     DEFAULT_TRAINABLE_LAYERS = None
@@ -545,6 +535,7 @@ class FasterRCNN(nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
         args = self.parse_args()
+        backbone_name: str = args["backbone"]
         num_channels = int(args["num_channels"])
         assert num_channels == 3, f"Must have `num_channels == 3` for model {self.__name__}."        
         
@@ -555,7 +546,8 @@ class FasterRCNN(nn.Module):
         pretrained_backbone: bool = arg_is_true(args["pretrained_backbone"])
         self.args = {**args, **kwargs}
 
-        model = models.detection.fasterrcnn_resnet50_fpn(
+        model = fasterrcnn_resnet_fpn(
+            backbone_name=backbone_name,
             pretrained=pretrained, progress=progress, num_classes=num_classes, 
             pretrained_backbone=pretrained_backbone, 
             trainable_backbone_layers=trainable_layers, **kwargs
@@ -565,6 +557,10 @@ class FasterRCNN(nn.Module):
 
     def parse_args(self):
         parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--backbone",
+            default=self.DEFAULT_BACKBONE_NAME
+        )        
         parser.add_argument(
             "--num-channels",
             default=self.DEFAULT_NUM_CHANNLES,
