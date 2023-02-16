@@ -270,7 +270,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self.duration = args["duration"]
         self.fc_index = args["fc_index"]
 
-        self.from_preds_csv = arg_is_true[args["from_preds_csv"]]
+        self.from_preds_csv = arg_is_true(args["from_preds_csv"])
         self.preds_csv_path = args["preds_csv_path"]
         self.filter_by_target_value = arg_is_true[args["filter_by_target_value"]]
         self.target_value = int(args["target_value"])
