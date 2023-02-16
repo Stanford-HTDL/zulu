@@ -562,7 +562,7 @@ class ObjectDetectorProcessor(ResNetProcessor):
 
 
     @staticmethod
-    def make_result(output: Dict[torch.Tensor]) -> Dict[list]:
+    def make_result(output: dict) -> dict:
         result = dict()
         for key, value in output.items():
             result[key] = value.detach().cpu().numpy().tolist()
