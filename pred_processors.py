@@ -529,27 +529,27 @@ class ResNetProcessor(ConvLSTMCProcessor):
             }
 
 
-    def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
-        filepaths: List[str] = input["args"][0]
-        filepath: str = filepaths[0].replace("\\", "/")
-        result: dict = {
-            "Negative": float(output[0, 0]),
-            "Positive": float(output[0, 1])
-        }
-        predicted_class = int(torch.argmax(output[0]))
+    # def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
+    #     filepaths: List[str] = input["args"][0]
+    #     filepath: str = filepaths[0].replace("\\", "/")
+    #     result: dict = {
+    #         "Negative": float(output[0, 0]),
+    #         "Positive": float(output[0, 1])
+    #     }
+    #     predicted_class = int(torch.argmax(output[0]))
 
-        logging.info(
-            f"""
-                    Filepath: {filepath}
-                    Positive: {result["Positive"]}
-                    Negative: {result["Negative"]}
-            """
-        )
-        results_list: list = [filepath, result["Positive"], result["Negative"], predicted_class]
-        if self.save_manifest:
-            with open(self.pred_manifest_path, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(results_list)
+    #     logging.info(
+    #         f"""
+    #                 Filepath: {filepath}
+    #                 Positive: {result["Positive"]}
+    #                 Negative: {result["Negative"]}
+    #         """
+    #     )
+    #     results_list: list = [filepath, result["Positive"], result["Negative"], predicted_class]
+    #     if self.save_manifest:
+    #         with open(self.pred_manifest_path, "a", newline="") as f:
+    #             writer = csv.writer(f)
+    #             writer.writerow(results_list)
 
 
 class ObjectDetectorProcessor(ResNetProcessor):
@@ -574,18 +574,18 @@ class ObjectDetectorProcessor(ResNetProcessor):
 
     def _save_results_from_local_files(self, input: dict, output: torch.Tensor) -> None:
         filepaths: List[str] = input["args"][0]
-        filepath: str = filepaths[0].replace("\\", "/")
+        dirpath: str = os.path.dirname(os.path.abspath(filepaths[0])).replace("\\", "/")
         result: dict = self.make_result(output[0]) # One image at a time
 
         logging.info(
             f"""
-                    Filepath: {filepath}
+                    Dirpath: {dirpath}
                     Boxes: {result["boxes"]}
                     Labels: {result["labels"]}
                     Scores: {result["scores"]}
             """
         )
-        results_list: list = [filepath, result["boxes"], result["labels"], result["scores"]]
+        results_list: list = [dirpath, result["boxes"], result["labels"], result["scores"]]
         if self.save_manifest:
             with open(self.pred_manifest_path, "a", newline="") as f:
                 writer = csv.writer(f)
