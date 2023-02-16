@@ -205,6 +205,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
     DEFAULT_TARGET_VALUE: int = 1
     DEFAULT_TARGET_COLUMN_NAME: str = "Predicted Class"
     DEFAULT_COORDINATE_COLUMN_NAMES: List[str] = ["Z", "X", "Y"]
+    DEFAULT_BBOX_THRESHOLD: float = 1e-2
 
     NUM_TILES_PER_SUBLIST = 128
     INPUT_SIZE = (224,224)
@@ -278,6 +279,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self.target_value = int(args["target_value"])
         self.target_column_name = args["target_column_name"]
         self.coordinate_column_names = args["coordinate_column_names"]
+        self.bbox_threshold = float(args["bbox_threshold"])
 
         self.embed_date = arg_is_true(args["embed_date"])
         self.save_images = arg_is_true(args["save_images"])
@@ -370,6 +372,11 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             default=self.DEFAULT_COORDINATE_COLUMN_NAMES,
             nargs="+",
             type=str
+        )
+        parser.add_argument(
+            "--bbox-threshold",
+            default=self.DEFAULT_BBOX_THRESHOLD,
+            type=float,
         )
         args = parse_args(parser=parser)
         return args                    
@@ -762,13 +769,20 @@ class ObjectDetectorProcessor(ResNetProcessor):
                 writer.writerow(results_list)
 
         zxy_str = f"{z}_{x}_{y}"
+
         # Save bounding boxes as geojson files
         if self.save_geojson:
-            bbox_save_dir = os.path.join(self.bbox_geojson_dir, zxy_str).replace("\\", "/")
-            os.makedirs(bbox_save_dir, exist_ok=True)
-            for i, bbox in enumerate(result["boxes"]):
-                bbox_geojson: dict = bbox_to_geojson(bbox, lng_lat_bbox, self.INPUT_SIZE)
-                bbox_savepath: str = os.path.join(bbox_save_dir, f"bbox_{i+1}.geojson").replace("\\", "/")
-                with open(bbox_savepath, "w") as f:
-                    json.dump(bbox_geojson, f)
+            bboxes_to_save: list = list()
+            for score, bbox in list(zip(result["scores"], result["boxes"])):
+                if score > self.bbox_threshold:
+                    bboxes_to_save.append(bbox)
+
+            if len(bboxes_to_save) > 0:
+                bbox_save_dir = os.path.join(self.bbox_geojson_dir, zxy_str).replace("\\", "/")
+                os.makedirs(bbox_save_dir, exist_ok=True)
+                for i, bbox in enumerate(bboxes_to_save):
+                    bbox_geojson: dict = bbox_to_geojson(bbox, lng_lat_bbox, self.INPUT_SIZE)
+                    bbox_savepath: str = os.path.join(bbox_save_dir, f"bbox_{i+1}.geojson").replace("\\", "/")
+                    with open(bbox_savepath, "w") as f:
+                        json.dump(bbox_geojson, f)
             
