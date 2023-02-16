@@ -465,7 +465,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
             self._get_tiles_from_preds_csv_path, preds_csv_path=preds_csv_path,
             filter_by_target_value=filter_by_target_value, 
             target_value=target_value, target_column_name=target_column_name,
-            target_value=target_value, coordinate_column_names=coordinate_column_names
+            coordinate_column_names=coordinate_column_names
         )
 
         data >> Transformer(tuple_to_args(self.get_filepaths), as_list=False) \
