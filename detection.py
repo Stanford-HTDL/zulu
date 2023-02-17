@@ -98,8 +98,12 @@ def bbox_to_geojson(
         east: float = lng_lat_bbox.east
         north: float = lng_lat_bbox.north
 
-        lng_len: float = (east - west) % 360.0
-        lat_len: float = (north - south) % 180
+        if west > east:
+            lng_len: float = 360.0 - (west - east) # Antemeridian problems
+        else:
+            lng_len: float = east - west
+
+        lat_len: float = north - south
 
         x_min, y_min, x_max, y_max = bbox
 
