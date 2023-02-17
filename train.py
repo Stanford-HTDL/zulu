@@ -372,7 +372,8 @@ def main():
             train_loss = train_one_epoch(
                 model=model, optimizer=optimizer, data_loader=train_loader, 
                 device=device, lr_scheduler=None
-            )   
+            )
+            train_loss = float(train_loss)   
         else:
             model.train()
             train_loss = 0.0            
