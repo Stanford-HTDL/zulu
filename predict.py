@@ -104,7 +104,9 @@ def main():
     else:
         experiment_id = args["id"]
     experiment_super_dir = args["experiment_dir"]
-    use_time_str_in_experiment_dir: bool = arg_is_true(args["use-time-str-experiment-dir"])
+    use_time_str_in_experiment_dir: bool = arg_is_true(
+        args["use_time_str_experiment_dir"]
+    )
     time_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())   
     if use_time_str_in_experiment_dir: 
         experiment_dir = os.path.join(
