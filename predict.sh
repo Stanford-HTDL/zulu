@@ -1,8 +1,8 @@
 #!/bin/bash
 CONDAENV=zulu
-CLASSIFIERCMDFILE="~/prod/classifier/cmd.txt"
-DETECTORCMDFILE="~/prod/detector/cmd.txt"
-SEEDFILE="~/prod/seeds/seeds.txt"
+CLASSIFIERCMDFILE="../prod/classifier/cmd.txt"
+DETECTORCMDFILE="../prod/detector/cmd.txt"
+SEEDFILE="../prod/seeds/seeds.txt"
 
 echo "Conda environment name: $CONDAENV"
 echo "Classifier command filepath: $CLASSIFIERCMDFILE"
