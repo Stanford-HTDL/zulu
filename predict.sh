@@ -19,10 +19,10 @@ echo "Seed: $SEED"
 
 echo "Running classifier..."
 
-# conda run -n $CONDAENV python -m predict $CLASSIFIERCMD --seed $seed
+conda run -n $CONDAENV python -m predict $CLASSIFIERCMD --seed $SEED
 
 echo "Running object detector..."
 
-# conda run -n $CONDAENV python -m predict $DETECTORCMD --seed $seed
+conda run -n $CONDAENV python -m predict $DETECTORCMD --seed $SEED
 
 echo "Done."
