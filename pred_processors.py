@@ -284,7 +284,7 @@ class ConvLSTMCProcessor(TimeSeriesProcessor):
         self.embed_date = arg_is_true(args["embed_date"])
         self.save_images = arg_is_true(args["save_images"])
         self.make_gifs = arg_is_true(args["make_gifs"])
-
+        self.args = args
 
     def parse_args(self):
         parser = argparse.ArgumentParser()

@@ -153,7 +153,8 @@ def main():
     # Note: You CANNOT place a `logging.info(...)` command before calling `get_args(...)`
     args = get_args(
         script_path=SCRIPT_PATH, log_filepath=log_filepath, 
-        **args, **model.args, experiment_id = experiment_id, time = time_str
+        **args, **model.args, **pred_processor.args, 
+        experiment_id=experiment_id, time=time_str
     )
 
     logging.info(f'Using device {device}')
