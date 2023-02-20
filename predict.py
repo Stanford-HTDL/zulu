@@ -13,7 +13,7 @@ from models import (FasterRCNN, ResNet, ResNetConvLSTM, ResNetOneDConv,
                     SpectrumNet, SqueezeNet)
 from pred_processors import (ConvLSTMCProcessor, ObjectDetectorProcessor,
                              Processor, ResNetProcessor)
-from script_utils import get_args, get_random_string
+from script_utils import get_args, get_random_string, arg_is_true
 
 SCRIPT_PATH = os.path.basename(__file__)
 
@@ -23,6 +23,7 @@ DEFAULT_EXPERIMENT_DIR = "experiments/"
 DEFAULT_DEVICE = "CUDA if available else CPU"
 DEFAULT_CHANNEL_AXIS = 1
 DEFAULT_EXPERIMENT_DIR: str = "experiments/"
+DEFAULT_USE_TIME_STR_EXPERIMENT_DIR: str = True
 
 DEFAULT_SEED = 8675309 # (___)-867-5309
 
@@ -80,7 +81,11 @@ def parse_args():
     )       
     parser.add_argument(
         "--id"
-    )           
+    )   
+    parser.add_argument(
+        "--use-time-str-experiment-dir",
+        default=DEFAULT_USE_TIME_STR_EXPERIMENT_DIR
+    )
     p_args, _ = parser.parse_known_args()
     return p_args
 
@@ -99,10 +104,16 @@ def main():
     else:
         experiment_id = args["id"]
     experiment_super_dir = args["experiment_dir"]
-    time_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())    
-    experiment_dir = os.path.join(
-        experiment_super_dir, experiment_id, f"{time_str}/"
-    ).replace("\\", "/")
+    use_time_str_in_experiment_dir: bool = arg_is_true(args["use-time-str-experiment-dir"])
+    time_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())   
+    if use_time_str_in_experiment_dir: 
+        experiment_dir = os.path.join(
+            experiment_super_dir, experiment_id, f"{time_str}/"
+        ).replace("\\", "/")
+    else:
+        experiment_dir = os.path.join(
+            experiment_super_dir, experiment_id + "/",
+        ).replace("\\", "/")                
     log_dir = os.path.join(experiment_dir, 'logs/').replace("\\", "/")
     # save_dir = os.path.join(
     #     experiment_dir, "model_checkpoints/"
