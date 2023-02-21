@@ -7,7 +7,7 @@ import json
 import math
 import os
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 import torch
@@ -507,10 +507,10 @@ class XYZObjectDetectionDataset(Dataset):
             T.Resize(self.INPUT_SIZE),
             # T.CenterCrop((224,224)),
             T.ToTensor(),
-            T.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            )
+            # T.Normalize(
+            #     mean=[0.485, 0.456, 0.406],
+            #     std=[0.229, 0.224, 0.225]
+            # )
         ])                
 
         self.samples = samples
@@ -557,17 +557,31 @@ class XYZObjectDetectionDataset(Dataset):
 
 
     @staticmethod
-    def make_bounding_box_from_annotation(annotation: dict, index: int) -> torch.Tensor:
+    def make_bounding_box_from_annotation(
+        annotation: dict, original_image_size: Optional[Tuple[int]] = None,
+        transformed_image_size: Optional[Tuple[int]] = None
+    ) -> torch.Tensor:
         x = annotation["x"]
         y = annotation["y"]
         width = annotation["width"]
         height = annotation["height"]
 
-        area = width * height
-        area = torch.as_tensor(area, dtype=torch.float32)
+        # area = width * height
+        # area = torch.as_tensor(area, dtype=torch.float32)
 
         x_max = x + width
         y_max = y + height
+
+        if original_image_size is not None and transformed_image_size is not None:
+            original_image_width, original_image_height = original_image_size
+            transformed_image_width, transformed_image_height = transformed_image_size
+            width_ratio = transformed_image_width / original_image_width
+            height_ratio = transformed_image_height / original_image_height
+            print('hello, there')
+            x = x * width_ratio
+            y = y * height_ratio
+            x_max = x_max * width_ratio
+            y_max = y_max * height_ratio        
 
         boxes = torch.tensor([x, y, x_max, y_max])
         labels = torch.ones(1, dtype=torch.int64)
@@ -589,12 +603,14 @@ class XYZObjectDetectionDataset(Dataset):
 
         filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
         assert os.path.exists(filepath), f"File {filepath} does not exist."
-        image: torch.Tensor = self.read_png(filepath=filepath)
+        image = self.read_png(filepath=filepath)
+        original_image_size: tuple = image.size
         image: torch.Tensor = self.transforms(image)
         image: torch.Tensor = image.float().contiguous()
 
         target: torch.Tensor = self.make_bounding_box_from_annotation(
-            annotation=annotation, index=idx
+            annotation=annotation, original_image_size=original_image_size,
+            transformed_image_size=self.INPUT_SIZE
         )
 
         return image, target

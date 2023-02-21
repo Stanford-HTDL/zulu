@@ -698,13 +698,23 @@ class ResNetProcessor(ConvLSTMCProcessor):
             }
 
 
-class ObjectDetectorProcessor(ResNetProcessor):
+class ObjectDetectorProcessor(ConvLSTMCProcessor):
     __name__ = "ObjectDetectorProcessor"
 
     LOCAL_PRED_CSV_HEADER = ["Directory", "Boxes", "Labels", "Scores"]
     PAPI_PRED_CSV_HEADER = [
         "Z", "X", "Y", "West", "South", "East", "North", "Geojson Name", "Boxes", "Labels", "Scores"
     ]
+    INPUT_SIZE = (224,224)    
+    TRANSORMS = T.Compose([
+        T.Resize(INPUT_SIZE),
+        # T.CenterCrop((224,224)),
+        T.ToTensor(),
+        # T.Normalize(
+        #     mean=[0.485, 0.456, 0.406],
+        #     std=[0.229, 0.224, 0.225]
+        # )
+    ])    
 
 
     @staticmethod

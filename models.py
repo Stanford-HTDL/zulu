@@ -530,6 +530,8 @@ class FasterRCNN(nn.Module):
     DEFAULT_PRETRAINED = False
     DEFAULT_PROGRESS = False 
     DEFAULT_PRETRAINED_BACKBONE = True 
+    DEFAULT_MIN_SIZE: int = 224
+    DEFAULT_MAX_SIZE: int = 224
 
 
     def __init__(self, **kwargs):
@@ -544,13 +546,16 @@ class FasterRCNN(nn.Module):
         pretrained: bool = arg_is_true(args["pretrained"])
         progress: bool = arg_is_true(args["progress"])
         pretrained_backbone: bool = arg_is_true(args["pretrained_backbone"])
+        min_size: int = int(args["min_size"])
+        max_size: int = int(args["max_size"])
         self.args = {**args, **kwargs}
 
         model = fasterrcnn_resnet_fpn(
             backbone_name=backbone_name,
             pretrained=pretrained, progress=progress, num_classes=num_classes, 
-            pretrained_backbone=pretrained_backbone, 
-            trainable_backbone_layers=trainable_layers, **kwargs
+            pretrained_backbone=pretrained_backbone, min_size=min_size, 
+            max_size=max_size, trainable_backbone_layers=trainable_layers, 
+            **kwargs
         )
         self.model = model
 
@@ -587,7 +592,17 @@ class FasterRCNN(nn.Module):
         parser.add_argument(
             "--pretrained-backbone",
             default=self.DEFAULT_PRETRAINED_BACKBONE
-        )     
+        ) 
+        parser.add_argument(
+            "--min_size",
+            default=self.DEFAULT_MIN_SIZE,
+            type=int
+        )
+        parser.add_argument(
+            "--max_size",
+            default=self.DEFAULT_MAX_SIZE,
+            type=int
+        )
         args = parse_args(parser=parser)
         return args
 
