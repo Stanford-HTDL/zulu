@@ -414,7 +414,7 @@ def main():
                     model=model, data_loader=validation_loader, device=device, 
                     thresh_list=DEFAULT_THRESH_LIST
                 )
-                metrics = {"mAP": mAP}
+                metrics = {"mAP": float(mAP)}
                 if print_metrics:
                     for key, value in metrics.items():
                         logging.info(f"{key}: {value}")                
