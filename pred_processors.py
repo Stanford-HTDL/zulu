@@ -698,7 +698,7 @@ class ResNetProcessor(ConvLSTMCProcessor):
             }
 
 
-class ObjectDetectorProcessor(ConvLSTMCProcessor):
+class ObjectDetectorProcessor(ResNetProcessor):
     __name__ = "ObjectDetectorProcessor"
 
     LOCAL_PRED_CSV_HEADER = ["Directory", "Boxes", "Labels", "Scores"]
