@@ -18,6 +18,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from script_utils import arg_is_true, parse_args
+from prepare_sios import find_file, prepare_sios_samples
 
 
 class EurosatDataset(Dataset):
@@ -577,7 +578,6 @@ class XYZObjectDetectionDataset(Dataset):
             transformed_image_width, transformed_image_height = transformed_image_size
             width_ratio = transformed_image_width / original_image_width
             height_ratio = transformed_image_height / original_image_height
-            print('hello, there')
             x = x * width_ratio
             y = y * height_ratio
             x_max = x_max * width_ratio
@@ -610,6 +610,183 @@ class XYZObjectDetectionDataset(Dataset):
 
         target: torch.Tensor = self.make_bounding_box_from_annotation(
             annotation=annotation, original_image_size=original_image_size,
+            transformed_image_size=self.INPUT_SIZE
+        )
+
+        return image, target
+
+        # return {
+        #     'X': image,
+        #     'Y': [target],
+        # }
+
+
+class XYZObjectDetectionDatasetTwo(Dataset):
+    """
+    Even better than the original.
+    """
+    __name__ = "XYZObjectDetectionDatasetTwo"
+
+    DEFAULT_DATA_MANIFEST: str = "sios_annotations_manifest.json"
+    DEFAULT_ANNOTATIONS: str = "sios_annotations.json"
+    DEFAULT_POS_ONLY: bool = True
+    INPUT_SIZE: Tuple[int, int] = (224,224)
+
+
+    def __init__(self):
+        args = self.parse_args()
+        data_manifest_path = args["data_manifest"]
+        with open(data_manifest_path) as f:
+            data_dict = json.load(f)
+
+        annotations_path = args["annotations_path"]
+        with open(annotations_path) as f:
+            annotations_dict: dict = json.load(f)
+
+        pos_only = arg_is_true(args["pos_only"])
+        self.args = args            
+
+        dir_path = data_dict["dir_path"]
+        samples: List[dict] = prepare_sios_samples(
+            annotation_dict=annotations_dict, imagery_dir=dir_path
+        )
+
+        # num_pos: int = 0
+        # num_neg: int = 0
+        # samples = list()
+        # for dirpath, dirnames, filenames in os.walk(dir_path):
+        #     if not dirnames:
+        #         for key, value in data_dict["categories"].items():
+        #             if not value and pos_only:
+        #                 continue
+        #             if key in dirpath:
+        #                 for tile_idx, annotation in annotations_dict.items():
+        #                     if tile_idx in dirpath:
+        #                         for filename in filenames:
+        #                             if value:
+        #                                 num_pos += 1
+        #                             else:
+        #                                 num_neg += 1                            
+        #                             sample_dict = {
+        #                                 "dirpath": dirpath,
+        #                                 "filename": filename,
+        #                                 "annotation": annotation,
+        #                                 "label": value
+        #                             }
+        #                             samples.append(sample_dict)
+
+
+        self.transforms = T.Compose([
+            T.Resize(self.INPUT_SIZE),
+            # T.CenterCrop((224,224)),
+            T.ToTensor(),
+            # T.Normalize(
+            #     mean=[0.485, 0.456, 0.406],
+            #     std=[0.229, 0.224, 0.225]
+            # )
+        ])                
+
+        self.samples = samples
+        self.categories = data_dict["categories"]
+
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--data-manifest",
+            default=self.DEFAULT_DATA_MANIFEST
+        )
+        parser.add_argument(
+            "--annotations-path",
+            default=self.DEFAULT_ANNOTATIONS
+        )
+        parser.add_argument(
+            "--pos-only",
+            default=self.DEFAULT_POS_ONLY
+        )
+        args = parse_args(parser=parser)
+        return args              
+
+
+    def __len__(self):
+        return len(self.samples)    
+
+
+    def read_png(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        return img
+
+
+    def read_png_as_arr(self, filepath: str) -> np.ndarray:
+        img = Image.open(filepath).convert('RGB')
+        arr = np.array(img)
+        return arr      
+
+
+    @staticmethod
+    def sort_filenames(filenames: List[str]) -> List[str]:
+        filenames_sorted = sorted(filenames)
+        return filenames_sorted
+
+
+    @staticmethod
+    def make_bounding_box_from_annotation(
+        annotations: dict, original_image_size: Optional[Tuple[int]] = None,
+        transformed_image_size: Optional[Tuple[int]] = None
+    ) -> torch.Tensor:
+        boxes: list = list()
+        labels: list = list()
+        regions: List[dict] = annotations["regions"]
+        for region in regions:
+            region_data: dict = region["shape_attributes"]
+            x = region_data["x"]
+            y = region_data["y"]
+            width = region_data["width"]
+            height = region_data["height"]
+
+            x_max = x + width
+            y_max = y + height
+
+            if original_image_size is not None and transformed_image_size is not None:
+                original_image_width, original_image_height = original_image_size
+                transformed_image_width, transformed_image_height = transformed_image_size
+                width_ratio = transformed_image_width / original_image_width
+                height_ratio = transformed_image_height / original_image_height
+                x = x * width_ratio
+                y = y * height_ratio
+                x_max = x_max * width_ratio
+                y_max = y_max * height_ratio
+
+            box = [x, y, x_max, y_max]
+
+            boxes.append(box)
+            labels.append(1)
+        
+        target = dict()
+        target["boxes"] = torch.tensor(boxes)
+        target["labels"] = torch.tensor(labels, dtype=torch.int64)
+        # target["image_id"] = [index]
+        # target["area"] = area
+        return target
+
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+
+        # dirpath: str = sample["dirpath"]
+        # filename: str = sample["filename"]
+        annotations: dict = sample["annotations"]
+
+        # filepath: str = os.path.join(dirpath, filename).replace("\\", "/")
+        filepath: str = sample["filepath"]
+        assert os.path.exists(filepath), f"File {filepath} does not exist."
+        image = self.read_png(filepath=filepath)
+        original_image_size: tuple = image.size
+        image: torch.Tensor = self.transforms(image)
+        image: torch.Tensor = image.float().contiguous()
+
+        target: torch.Tensor = self.make_bounding_box_from_annotation(
+            annotations=annotations, original_image_size=original_image_size,
             transformed_image_size=self.INPUT_SIZE
         )
 
