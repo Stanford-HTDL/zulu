@@ -11,7 +11,8 @@ import numpy as np
 import torch
 
 from datasets import (ConvLSTMCDataset, EurosatDataset,
-                      XYZObjectDetectionDataset, XYZTileDataset)
+                      XYZObjectDetectionDataset, XYZObjectDetectionDatasetTwo,
+                      XYZTileDataset)
 from detection import collate_fn, evaluate, train_one_epoch
 from metrics import calc_metrics
 from models import (FasterRCNN, ResNet, ResNetConvLSTM, ResNetOneDConv,
@@ -66,7 +67,8 @@ DATASETS = {
     EurosatDataset.__name__: EurosatDataset,
     ConvLSTMCDataset.__name__: ConvLSTMCDataset,
     XYZTileDataset.__name__: XYZTileDataset,
-    XYZObjectDetectionDataset.__name__: XYZObjectDetectionDataset
+    XYZObjectDetectionDataset.__name__: XYZObjectDetectionDataset,
+    XYZObjectDetectionDatasetTwo.__name__: XYZObjectDetectionDatasetTwo
 }
 
 CRITERIA = {
