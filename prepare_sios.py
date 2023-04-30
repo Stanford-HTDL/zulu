@@ -42,3 +42,30 @@ def prepare_sios_samples(
         }
         samples.append(sample_dict)
     return samples
+
+
+def get_filepaths(directory, extension: str = ".png"):
+    paths_list = list()
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(extension):
+                filepath = os.path.join(root, file).replace("\\", "/")
+                paths_list.append(filepath)
+    return paths_list
+
+
+def get_negative_sios_samples(
+    imagery_dir: str, negative_dir_name: str = "Negative", 
+    label: Optional[str] = "Negative"
+) -> list:
+    negative_dir_path: str = os.path.join(imagery_dir, negative_dir_name).replace("\\", "/")
+    paths_list = get_filepaths(negative_dir_path)
+    samples = list()
+    for path in paths_list:
+        sample_dict: dict = {
+            "filepath": path,
+            "annotations": None,
+            "label": label
+        }
+        samples.append(sample_dict)
+    return samples

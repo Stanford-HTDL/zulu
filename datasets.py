@@ -18,7 +18,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from script_utils import arg_is_true, parse_args
-from prepare_sios import find_file, prepare_sios_samples
+from prepare_sios import prepare_sios_samples, get_negative_sios_samples
 
 
 class EurosatDataset(Dataset):
@@ -650,6 +650,9 @@ class XYZObjectDetectionDatasetTwo(Dataset):
         samples: List[dict] = prepare_sios_samples(
             annotation_dict=annotations_dict, imagery_dir=dir_path
         )
+        if not pos_only:
+            neg_samples = get_negative_sios_samples(imagery_dir=dir_path)
+            samples += neg_samples
 
         # num_pos: int = 0
         # num_neg: int = 0
@@ -736,6 +739,11 @@ class XYZObjectDetectionDatasetTwo(Dataset):
     ) -> torch.Tensor:
         boxes: list = list()
         labels: list = list()
+        if annotations is None:
+            target = dict()
+            target["boxes"] = torch.empty((0,4))
+            target["labels"] = torch.empty((0))
+            return target
         regions: List[dict] = annotations["regions"]
         for region in regions:
             region_data: dict = region["shape_attributes"]
