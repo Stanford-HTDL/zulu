@@ -742,7 +742,7 @@ class XYZObjectDetectionDatasetTwo(Dataset):
         if annotations is None:
             target = dict()
             target["boxes"] = torch.empty((0,4))
-            target["labels"] = torch.empty((0))
+            target["labels"] = torch.empty((0), dtype=torch.int64)
             return target
         regions: List[dict] = annotations["regions"]
         for region in regions:
