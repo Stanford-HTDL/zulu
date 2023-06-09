@@ -17,7 +17,7 @@ while read seed; do
     echo "Seed: $seed"
     while read cmd; do
         echo "Command: $cmd"
-        conda run -n $CONDAENV python -m train $cmd --seed $seed
+        # conda run -n $CONDAENV python -m train $cmd --seed $seed
         # PID=$!
         # wait $PID
     done < $CMDFILE
